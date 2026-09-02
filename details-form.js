@@ -4,6 +4,11 @@
 import { db, storage } from "./firebase-config.js";
 import { doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
+import {
+  EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_DETAILS_CONFIRMED
+} from "./emailjs-config.js";
+
+emailjs.init(EMAILJS_PUBLIC_KEY);
 
 const params = new URLSearchParams(location.search);
 const bookingId = params.get("id");
@@ -133,6 +138,23 @@ form.addEventListener("submit", async (e) => {
     detailsView.hidden = true;
     confirmView.hidden = false;
     confirmView.scrollIntoView({ behavior: "smooth" });
+
+    const statusEl = document.getElementById("details-email-status");
+    try {
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_DETAILS_CONFIRMED, {
+        to_email: bookingData.organiserEmail,
+        to_name: bookingData.organiserName,
+        reply_to: bookingData.organiserEmail,
+        event_title: bookingData.eventTitle,
+        site_name: bookingData.siteName,
+        event_date: bookingData.eventDate,
+      });
+      statusEl.textContent = "A confirmation email has been sent to you.";
+    } catch (err) {
+      console.error("EmailJS send failed", err);
+      // Non-blocking: the details are already saved, a missed email isn't critical.
+      statusEl.textContent = "";
+    }
   } catch (err) {
     console.error(err);
     errorBox.textContent = err.message || "Something went wrong submitting your details. Please try again.";

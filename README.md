@@ -70,7 +70,35 @@ Without this step the app will still load, but every read/write will be
 rejected (Firestore defaults to deny-all), and the capacity-check queries
 will fail until the composite indexes exist.
 
-## 5. Push to GitHub and connect Vercel
+## 5. Set up automatic emails (EmailJS)
+
+Two emails send automatically, both straight from the browser (no server needed):
+
+1. **Booking approved** — sent the moment a council member clicks Approve, containing the follow-up link for insurance/event plan/risk assessment/payment.
+2. **Details confirmed** — sent the moment an organiser submits that follow-up form, confirming everything's been received.
+
+Anything beyond that — questions, back-and-forth about the risk assessment, etc. — happens as normal email, since both templates set Reply-To to the organiser's address.
+
+**Setup:**
+
+1. Create a free account at [emailjs.com](https://www.emailjs.com) (200 emails/month free).
+2. **Email Services → Add New Service** — connect a mailbox (Gmail works well). Note the **Service ID**.
+3. **Account → General** — copy your **Public Key**.
+4. **Email Templates → Create New Template**, twice — once per email below. For each, set:
+   - **To Email**: `{{to_email}}`
+   - **Reply To**: `{{reply_to}}`
+   - **Subject** and **body**: your own wording, using the variables listed below wherever you want that data to appear.
+   - Note each template's **Template ID**.
+
+   **Template 1 — booking approved.** Variables available: `to_email`, `to_name`, `event_title`, `site_name`, `event_date`, `start_time`, `end_time`, `follow_up_url`. The body should include `{{follow_up_url}}` as a link/button — that's the whole point of this email.
+
+   **Template 2 — details confirmed.** Variables available: `to_email`, `to_name`, `event_title`, `site_name`, `event_date`.
+
+5. Fill in `emailjs-config.js` with your **Public Key**, **Service ID**, and the two **Template IDs**.
+
+If a send fails (bad config, over the free quota, network issue), nothing breaks — the booking is still approved / the details are still saved in Firestore either way, the dashboard just shows "Couldn't send the email automatically" and lets you copy the link and send it by hand instead. You can also click **Resend email** on any approved booking in the **Approved & upcoming** tab at any time.
+
+## 6. Push to GitHub and connect Vercel
 
 ```bash
 git init
@@ -111,12 +139,7 @@ tracked sites.
 
 ## Known limitations / good next steps
 
-- **No automatic emails.** A static site + Firestore can't send email on its
-  own. Approving a booking generates the follow-up link and gives you a
-  "copy link" / "open in email" button to send it yourself. To automate
-  this fully, add a small Vercel serverless function (or a Firebase Cloud
-  Function) triggered on a booking's `status` changing to `approved`, using
-  an email API such as Resend, Postmark, or SendGrid.
+- **Emails depend on EmailJS's free tier (200/month)** and on the organiser's browser successfully reaching EmailJS at the moment they click Approve / Submit. Nothing in Firestore depends on the email succeeding — bookings and details are saved regardless — but if you outgrow 200/month or want guaranteed delivery/retries, move sending into a Cloud Function triggered on the Firestore write instead of sending from the browser.
 - **Follow-up link security is link-secrecy based, not cryptographically
   enforced.** The emailed link (booking ID + random token) is unguessable,
   and Firestore rules restrict what it can be used to change (only the
