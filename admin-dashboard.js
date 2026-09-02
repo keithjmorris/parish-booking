@@ -211,6 +211,7 @@ function showLinkModal(bookingId, token, booking) {
     `?subject=${encodeURIComponent("Your booking has been approved — next steps")}` +
     `&body=${encodeURIComponent(`Hi ${booking.organiserName},\n\nYour booking for "${booking.eventTitle}" has been approved.\n\nPlease complete this short follow-up form with your insurance, event plan, risk assessment and payment details:\n${url}\n\nThank you,\nThe Parish Council`)}`;
   modal.hidden = false;
+  modal.style.display = "flex";
 
   document.getElementById("link-modal-copy").onclick = () => {
     navigator.clipboard.writeText(url);
@@ -218,7 +219,10 @@ function showLinkModal(bookingId, token, booking) {
     btn.textContent = "Copied";
     setTimeout(() => (btn.textContent = "Copy"), 1500);
   };
-  document.getElementById("link-modal-close").onclick = () => (modal.hidden = true);
+  document.getElementById("link-modal-close").onclick = () => {
+    modal.hidden = true;
+    modal.style.display = "none";
+  };
 }
 
 // ---- Approved tab -------------------------------------------------------
