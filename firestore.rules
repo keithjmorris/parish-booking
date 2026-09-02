@@ -1,0 +1,70 @@
+rules_version = '2';
+
+// Deploy with: firebase deploy --only firestore:rules
+// (see README.md for the one-off Firebase CLI setup)
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isCouncilMember() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/councilMembers/$(request.auth.uid));
+    }
+
+    // Council member accounts. Created manually by the clerk in the Firebase
+    // console (Authentication) + a matching doc here (see README) — not
+    // self-service, so writes are closed here.
+    match /councilMembers/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Bookable sites. Public needs to read the list to fill in the request
+    // form; only the council can add/edit/deactivate sites.
+    match /sites/{siteId} {
+      allow read: if true;
+      allow write: if isCouncilMember();
+    }
+
+    match /bookings/{bookingId} {
+
+      // Anyone can submit a new request, but only as 'pending' and without
+      // setting fields that only the council should control.
+      allow create: if request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasAll(
+             ['eventTitle','siteName','eventDate','startTime','endTime',
+              'organiserName','organiserEmail','organiserPhone','status'])
+        && !('followUpToken' in request.resource.data)
+        && !('approvedBy' in request.resource.data)
+        && !('rejectedBy' in request.resource.data);
+
+      // A single booking can be fetched directly by anyone holding its ID —
+      // this is what lets the emailed follow-up link work without a login.
+      // Booking IDs are random Firestore document IDs and are not listable,
+      // so this does not expose the booking list.
+      //
+      // NOTE: this is an MVP-level trust model. Real confidentiality of the
+      // follow-up token comes from the emailed link being unguessable, not
+      // from these rules. If you need stronger guarantees, move approval /
+      // link issuance behind a Cloud Function and stop allowing public get.
+      allow get: if true;
+      allow list: if isCouncilMember();
+
+      allow update: if isCouncilMember()
+        || (
+          // Organiser holding the correct link may only add/update their
+          // follow-up details on a booking that's already approved, and
+          // can't touch anything else (status, approval fields, etc).
+          resource.data.status == 'approved'
+          && request.resource.data.followUpToken == resource.data.followUpToken
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['details', 'detailsSubmittedAt'])
+        );
+
+      allow delete: if isCouncilMember();
+    }
+  }
+}

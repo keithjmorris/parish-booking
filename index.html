@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Request a booking — Parish Council</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead__inner">
+    <span class="masthead__title">Parish Council — Site Bookings</span>
+    <span class="masthead__meta"><a href="admin.html">Council login</a></span>
+  </div>
+</header>
+
+<main class="page">
+
+  <div class="stepper">
+    <div class="stepper__step is-active"><span class="stepper__num">1</span>Request</div>
+    <div class="stepper__step"><span class="stepper__num">2</span>Approval</div>
+    <div class="stepper__step"><span class="stepper__num">3</span>Event details</div>
+  </div>
+
+  <div id="form-view">
+    <h1>Request a booking</h1>
+    <p>Tell us what you'd like to hold and where. The council will review your request and get back to you by email — you don't need an account.</p>
+
+    <form id="booking-form" novalidate>
+      <div class="card">
+        <div class="section-label">About the event</div>
+
+        <div class="field">
+          <label for="eventTitle">Event title</label>
+          <input type="text" id="eventTitle" name="eventTitle" required>
+        </div>
+
+        <div class="field">
+          <label for="siteSelect">Location requested</label>
+          <select id="siteSelect" name="siteSelect" required>
+            <option value="" disabled selected>Loading sites…</option>
+          </select>
+          <div id="capacity-info" class="capacity-line" hidden></div>
+          <div class="capacity-bar" id="capacity-bar" hidden><div class="capacity-bar__fill" id="capacity-bar-fill"></div></div>
+        </div>
+
+        <div class="field" id="otherLocationField" hidden>
+          <label for="otherLocation">Please specify the location</label>
+          <input type="text" id="otherLocation" name="otherLocation">
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="eventDate">Date</label>
+            <input type="date" id="eventDate" name="eventDate" required>
+          </div>
+          <div class="field">
+            <label for="eventEndDate">End date <span style="font-weight:400;color:var(--ink-faint);">(if more than one day)</span></label>
+            <input type="date" id="eventEndDate" name="eventEndDate">
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="startTime">Start time</label>
+            <input type="time" id="startTime" name="startTime" required>
+          </div>
+          <div class="field">
+            <label for="endTime">End time</label>
+            <input type="time" id="endTime" name="endTime" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="checkbox-row">
+            <input type="checkbox" id="isCommercial" name="isCommercial">
+            <label for="isCommercial">This is a commercial event (e.g. a paid class, trader, or private profit-making booking)</label>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="description">Brief description <span style="font-weight:400;color:var(--ink-faint);">(optional)</span></label>
+          <textarea id="description" name="description" placeholder="What's happening, roughly how many people, anything the council should know"></textarea>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-label">Organiser details</div>
+
+        <div class="field">
+          <label for="organiserName">Full name</label>
+          <input type="text" id="organiserName" name="organiserName" required>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="organiserEmail">Email</label>
+            <input type="email" id="organiserEmail" name="organiserEmail" required>
+          </div>
+          <div class="field">
+            <label for="organiserPhone">Phone</label>
+            <input type="tel" id="organiserPhone" name="organiserPhone" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="organiserOrg">Organisation <span style="font-weight:400;color:var(--ink-faint);">(if applicable)</span></label>
+          <input type="text" id="organiserOrg" name="organiserOrg">
+        </div>
+      </div>
+
+      <div id="form-error" class="notice notice--error" hidden></div>
+
+      <button type="submit" class="btn-primary" id="submit-btn">Submit request</button>
+    </form>
+  </div>
+
+  <div id="confirm-view" class="card" hidden>
+    <h2>Request sent</h2>
+    <p>Thank you — your booking request has been sent to the council for review.</p>
+    <p>Your reference number is <strong id="confirm-ref"></strong>. We'll email <strong id="confirm-email"></strong> once it's been decided. If approved, you'll receive a follow-up form for insurance, event plan, risk assessment and payment details.</p>
+    <a href="index.html" class="btn btn-secondary">Submit another request</a>
+  </div>
+
+</main>
+
+<script type="module" src="booking-form.js"></script>
+</body>
+</html>

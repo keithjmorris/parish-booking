@@ -1,0 +1,21 @@
+rules_version = '2';
+
+// Deploy with: firebase deploy --only storage
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /bookings/{bookingId}/{fileName} {
+
+      // Organisers upload documents via the token-linked details form
+      // (no login). Restrict by size and file type only.
+      allow write: if request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('application/pdf|image/.*|application/msword|application/vnd\\.openxmlformats-officedocument\\.wordprocessingml\\.document');
+
+      // These are confidential documents (insurance certificates, risk
+      // assessments) — only signed-in council members can read them back.
+      // In this app only council members ever sign in, so "signed in" is
+      // an effective proxy for "council member".
+      allow read: if request.auth != null;
+    }
+  }
+}

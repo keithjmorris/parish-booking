@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Council dashboard — Parish Council</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead__inner">
+    <span class="masthead__title">Parish Council — Booking Dashboard</span>
+    <span class="masthead__meta" id="header-meta"><a href="index.html">Public booking form</a></span>
+  </div>
+</header>
+
+<main class="page page--wide">
+
+  <!-- Login -->
+  <div id="login-view" class="card" style="max-width:380px;margin:40px auto;">
+    <h2>Council sign in</h2>
+    <p>Use the individual account set up for you by the clerk.</p>
+    <form id="login-form">
+      <div class="field">
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" required>
+      </div>
+      <div class="field">
+        <label for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" required>
+      </div>
+      <div id="login-error" class="notice notice--error" hidden></div>
+      <button type="submit" class="btn-primary" style="width:100%;justify-content:center;">Sign in</button>
+    </form>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard-view" hidden>
+
+    <div class="tabs">
+      <div class="tab is-active" data-tab="pending">Pending requests <span id="pending-count"></span></div>
+      <div class="tab" data-tab="approved">Approved &amp; upcoming</div>
+      <div class="tab" data-tab="sites">Sites</div>
+    </div>
+
+    <section id="tab-pending" class="tab-panel">
+      <div id="pending-list"></div>
+    </section>
+
+    <section id="tab-approved" class="tab-panel" hidden>
+      <div id="approved-list"></div>
+    </section>
+
+    <section id="tab-sites" class="tab-panel" hidden>
+      <div class="card">
+        <div class="section-label">Add a site</div>
+        <form id="add-site-form" style="display:flex;gap:10px;align-items:flex-end;">
+          <div class="field" style="flex:1;margin-bottom:0;">
+            <label for="newSiteName">Site name</label>
+            <input type="text" id="newSiteName" placeholder="e.g. Village Hall" required>
+          </div>
+          <button type="submit" class="btn-primary">Add site</button>
+        </form>
+      </div>
+      <div id="sites-list"></div>
+    </section>
+
+  </div>
+
+</main>
+
+<!-- Follow-up link modal -->
+<div id="link-modal" hidden style="position:fixed;inset:0;background:rgba(20,25,20,0.5);display:flex;align-items:center;justify-content:center;padding:20px;z-index:10;">
+  <div class="card" style="max-width:480px;width:100%;">
+    <h3>Booking approved</h3>
+    <p>Send this link to the organiser so they can submit insurance, event plan, risk assessment and payment details.</p>
+    <div class="link-box">
+      <span id="link-modal-url" style="flex:1;"></span>
+      <button type="button" class="btn-secondary btn-small" id="link-modal-copy">Copy</button>
+    </div>
+    <p style="margin-top:14px;"><a id="link-modal-mailto" class="btn btn-secondary btn-small" href="#">Open in email</a></p>
+    <button type="button" class="btn-primary" id="link-modal-close" style="margin-top:10px;">Done</button>
+  </div>
+</div>
+
+<script type="module" src="admin-dashboard.js"></script>
+</body>
+</html>

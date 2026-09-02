@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Event details — Parish Council</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead__inner">
+    <span class="masthead__title">Parish Council — Site Bookings</span>
+  </div>
+</header>
+
+<main class="page">
+
+  <div class="stepper">
+    <div class="stepper__step is-done"><span class="stepper__num">1</span>Request</div>
+    <div class="stepper__step is-done"><span class="stepper__num">2</span>Approval</div>
+    <div class="stepper__step is-active"><span class="stepper__num">3</span>Event details</div>
+  </div>
+
+  <div id="loading-view" class="spinner-text">Loading your booking…</div>
+
+  <div id="invalid-view" class="card" hidden>
+    <h2>Link not valid</h2>
+    <p>This link has expired, already been used to view a different booking, or the booking hasn't been approved yet. If you think this is a mistake, please contact the parish clerk directly.</p>
+  </div>
+
+  <div id="details-view" hidden>
+    <h1 id="event-title-heading">Event details</h1>
+    <p id="event-summary"></p>
+
+    <form id="details-form">
+      <div class="card">
+        <div class="section-label">Insurance</div>
+        <div class="field">
+          <label for="insuranceProvider">Insurer / provider</label>
+          <input type="text" id="insuranceProvider" required>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="insurancePolicyNumber">Policy number</label>
+            <input type="text" id="insurancePolicyNumber" required>
+          </div>
+          <div class="field">
+            <label for="insuranceExpiry">Policy expiry date</label>
+            <input type="date" id="insuranceExpiry" required>
+          </div>
+        </div>
+        <div class="field">
+          <label for="insuranceFile">Upload certificate <span style="font-weight:400;color:var(--ink-faint);">(optional, PDF or image, max 10MB)</span></label>
+          <div class="file-input"><input type="file" id="insuranceFile" accept=".pdf,.jpg,.jpeg,.png"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-label">Event plan</div>
+        <div class="field">
+          <label for="eventPlan">Describe the running order, setup/pack-down times, and numbers expected</label>
+          <textarea id="eventPlan" required></textarea>
+        </div>
+        <div class="field">
+          <label for="eventPlanFile">Upload event plan document <span style="font-weight:400;color:var(--ink-faint);">(optional)</span></label>
+          <div class="file-input"><input type="file" id="eventPlanFile" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-label">Risk assessment</div>
+        <div class="field">
+          <label for="riskAssessment">Summarise the key risks and how you'll manage them</label>
+          <textarea id="riskAssessment" required></textarea>
+        </div>
+        <div class="field">
+          <label for="riskAssessmentFile">Upload full risk assessment <span style="font-weight:400;color:var(--ink-faint);">(optional)</span></label>
+          <div class="file-input"><input type="file" id="riskAssessmentFile" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-label">Payment &amp; special arrangements</div>
+        <div class="field">
+          <div class="checkbox-row">
+            <input type="checkbox" id="paymentConfirmed">
+            <label for="paymentConfirmed">I confirm payment has been made / arranged with the parish clerk</label>
+          </div>
+        </div>
+        <div class="field">
+          <label for="paymentNotes">Payment reference or notes <span style="font-weight:400;color:var(--ink-faint);">(optional)</span></label>
+          <input type="text" id="paymentNotes">
+        </div>
+        <div class="field">
+          <label for="specialArrangements">Special arrangements or agreements <span style="font-weight:400;color:var(--ink-faint);">(optional)</span></label>
+          <textarea id="specialArrangements" placeholder="e.g. access arrangements, additional stewarding, noise agreement"></textarea>
+        </div>
+      </div>
+
+      <div id="details-error" class="notice notice--error" hidden></div>
+      <button type="submit" class="btn-primary" id="details-submit-btn">Submit details</button>
+    </form>
+  </div>
+
+  <div id="details-confirm-view" class="card" hidden>
+    <h2>Thank you</h2>
+    <p>Your event details have been submitted to the council. You'll be contacted if anything further is needed.</p>
+  </div>
+
+</main>
+
+<script type="module" src="details-form.js"></script>
+</body>
+</html>
