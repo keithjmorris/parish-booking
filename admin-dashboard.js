@@ -203,7 +203,7 @@ async function rejectBooking(id, reason) {
 }
 
 function showLinkModal(bookingId, token, booking) {
-  const url = `${location.origin}${location.pathname.replace("admin.html", "")}details.html?id=${bookingId}&token=${token}`;
+  const url = `${location.origin}/details.html?id=${bookingId}&token=${token}`;
   const modal = document.getElementById("link-modal");
   document.getElementById("link-modal-url").textContent = url;
   const mailto = document.getElementById("link-modal-mailto");
