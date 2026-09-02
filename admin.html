@@ -40,6 +40,10 @@
   <!-- Dashboard -->
   <div id="dashboard-view" hidden>
 
+    <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+      <button type="button" class="btn-secondary btn-small" id="export-csv-btn">Download all bookings (CSV)</button>
+    </div>
+
     <div class="tabs">
       <div class="tab is-active" data-tab="pending">Pending requests <span id="pending-count"></span></div>
       <div class="tab" data-tab="approved">Approved &amp; upcoming</div>
@@ -75,8 +79,9 @@
 <!-- Follow-up link modal -->
 <div id="link-modal" hidden style="position:fixed;inset:0;background:rgba(20,25,20,0.5);align-items:center;justify-content:center;padding:20px;z-index:10;">
   <div class="card" style="max-width:480px;width:100%;">
-    <h3>Booking approved</h3>
-    <p>Send this link to the organiser so they can submit insurance, event plan, risk assessment and payment details.</p>
+    <h3 id="link-modal-title">Booking approved</h3>
+    <p id="link-modal-status">Sending email to the organiser…</p>
+    <p style="font-size:0.85rem;">You can also copy the link directly, or resend later from the Approved &amp; upcoming tab.</p>
     <div class="link-box">
       <span id="link-modal-url" style="flex:1;"></span>
       <button type="button" class="btn-secondary btn-small" id="link-modal-copy">Copy</button>
@@ -86,6 +91,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 <script type="module" src="admin-dashboard.js"></script>
 </body>
 </html>

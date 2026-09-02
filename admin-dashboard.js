@@ -2,12 +2,17 @@
 
 import { db, auth } from "./firebase-config.js";
 import {
-  collection, doc, addDoc, updateDoc, getDoc, onSnapshot,
+  collection, doc, addDoc, updateDoc, getDoc, getDocs, onSnapshot,
   query, where, orderBy, serverTimestamp, getCountFromServer
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
   signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import {
+  EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_APPROVAL
+} from "./emailjs-config.js";
+
+emailjs.init(EMAILJS_PUBLIC_KEY);
 
 const TOTAL_LIMIT = 28;
 const COMMERCIAL_LIMIT = 14;
@@ -191,6 +196,37 @@ async function approveBooking(id, booking) {
   });
 
   showLinkModal(id, token, booking);
+  sendApprovalEmail(id, token, booking);
+}
+
+async function sendApprovalEmail(bookingId, token, booking) {
+  const url = `${location.origin}/details.html?id=${bookingId}&token=${token}`;
+  const statusEl = document.getElementById("link-modal-status");
+
+  try {
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_APPROVAL, {
+      to_email: booking.organiserEmail,
+      to_name: booking.organiserName,
+      reply_to: booking.organiserEmail,
+      event_title: booking.eventTitle,
+      site_name: booking.siteName,
+      event_date: fmtDate(booking.eventDate, booking.eventEndDate),
+      start_time: booking.startTime,
+      end_time: booking.endTime,
+      follow_up_url: url,
+    });
+    if (statusEl && !document.getElementById("link-modal").hidden) {
+      statusEl.textContent = `Email sent to ${booking.organiserEmail}.`;
+    }
+    return true;
+  } catch (err) {
+    console.error("EmailJS send failed", err);
+    if (statusEl && !document.getElementById("link-modal").hidden) {
+      statusEl.textContent = `Couldn't send the email automatically — please copy the link below and send it yourself.`;
+      statusEl.style.color = "var(--alert)";
+    }
+    return false;
+  }
 }
 
 async function rejectBooking(id, reason) {
@@ -205,6 +241,9 @@ async function rejectBooking(id, reason) {
 function showLinkModal(bookingId, token, booking) {
   const url = `${location.origin}/details.html?id=${bookingId}&token=${token}`;
   const modal = document.getElementById("link-modal");
+  const statusEl = document.getElementById("link-modal-status");
+  statusEl.textContent = "Sending email to the organiser…";
+  statusEl.style.color = "";
   document.getElementById("link-modal-url").textContent = url;
   const mailto = document.getElementById("link-modal-mailto");
   mailto.href = `mailto:${encodeURIComponent(booking.organiserEmail)}` +
@@ -256,13 +295,16 @@ function startApprovedListener() {
           <span class="badge ${hasDetails ? "badge--approved" : "badge--pending"}">${hasDetails ? "Details submitted" : "Awaiting details"}</span>
         </div>
         <div class="request-item__actions">
-          <button class="btn-secondary btn-small" data-action="link">Copy follow-up link</button>
+          <button class="btn-secondary btn-small" data-action="link">Resend email</button>
           ${hasDetails ? `<button class="btn-secondary btn-small" data-action="view">View submitted details</button>` : ""}
         </div>
         <div class="details-panel" hidden style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:0.88rem;"></div>
       `;
 
-      el.querySelector('[data-action="link"]').addEventListener("click", () => showLinkModal(id, b.followUpToken, b));
+      el.querySelector('[data-action="link"]').addEventListener("click", () => {
+        showLinkModal(id, b.followUpToken, b);
+        sendApprovalEmail(id, b.followUpToken, b);
+      });
 
       const viewBtn = el.querySelector('[data-action="view"]');
       if (viewBtn) {
@@ -343,3 +385,99 @@ document.getElementById("add-site-form").addEventListener("submit", async (e) =>
   await addDoc(siteCollection(), { name, active: true, createdAt: serverTimestamp() });
   input.value = "";
 });
+
+// ---- CSV export -----------------------------------------------------
+
+const CSV_COLUMNS = [
+  "id", "status", "eventTitle", "siteName", "isOtherLocation",
+  "eventDate", "eventEndDate", "startTime", "endTime", "isCommercial",
+  "organiserName", "organiserEmail", "organiserPhone", "organiserOrg", "description",
+  "createdAt", "approvedAt", "approvedBy",
+  "rejectedAt", "rejectedBy", "rejectionReason",
+  "detailsSubmittedAt",
+  "insuranceProvider", "insurancePolicyNumber", "insuranceExpiry",
+  "eventPlan", "riskAssessment",
+  "paymentConfirmed", "paymentNotes", "specialArrangements", "fileUrls",
+];
+
+function tsToStr(ts) {
+  if (ts && typeof ts.toDate === "function") return ts.toDate().toISOString();
+  return "";
+}
+
+function csvEscape(value) {
+  const str = value === undefined || value === null ? "" : String(value);
+  if (/[",\n]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function bookingToRow(id, b) {
+  const d = b.details || {};
+  const row = {
+    id,
+    status: b.status,
+    eventTitle: b.eventTitle,
+    siteName: b.siteName,
+    isOtherLocation: b.isOtherLocation,
+    eventDate: b.eventDate,
+    eventEndDate: b.eventEndDate,
+    startTime: b.startTime,
+    endTime: b.endTime,
+    isCommercial: b.isCommercial,
+    organiserName: b.organiserName,
+    organiserEmail: b.organiserEmail,
+    organiserPhone: b.organiserPhone,
+    organiserOrg: b.organiserOrg,
+    description: b.description,
+    createdAt: tsToStr(b.createdAt),
+    approvedAt: tsToStr(b.approvedAt),
+    approvedBy: b.approvedBy,
+    rejectedAt: tsToStr(b.rejectedAt),
+    rejectedBy: b.rejectedBy,
+    rejectionReason: b.rejectionReason,
+    detailsSubmittedAt: tsToStr(b.detailsSubmittedAt),
+    insuranceProvider: d.insuranceProvider,
+    insurancePolicyNumber: d.insurancePolicyNumber,
+    insuranceExpiry: d.insuranceExpiry,
+    eventPlan: d.eventPlan,
+    riskAssessment: d.riskAssessment,
+    paymentConfirmed: d.paymentConfirmed,
+    paymentNotes: d.paymentNotes,
+    specialArrangements: d.specialArrangements,
+    fileUrls: (d.fileUrls || []).join(" | "),
+  };
+  return CSV_COLUMNS.map(col => csvEscape(row[col])).join(",");
+}
+
+async function exportBookingsCSV() {
+  const btn = document.getElementById("export-csv-btn");
+  btn.disabled = true;
+  btn.textContent = "Preparing…";
+
+  try {
+    const snap = await getDocs(query(bookingsCollection(), orderBy("createdAt", "asc")));
+    const lines = [CSV_COLUMNS.join(",")];
+    snap.forEach(docSnap => lines.push(bookingToRow(docSnap.id, docSnap.data())));
+
+    const csv = lines.join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bookings-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("CSV export failed", err);
+    alert("Couldn't export bookings — check the console for details.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Download all bookings (CSV)";
+  }
+}
+
+document.getElementById("export-csv-btn").addEventListener("click", exportBookingsCSV);
