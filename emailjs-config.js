@@ -3,6 +3,7 @@
 // Fill in from your EmailJS dashboard (emailjs.com):
 // - EMAILJS_PUBLIC_KEY: Account → General → Public Key
 // - EMAILJS_SERVICE_ID: Email Services → your connected service's ID
+// - EMAILJS_TEMPLATE_REQUEST_RECEIVED: Email Templates → the "request received" template's ID
 // - EMAILJS_TEMPLATE_APPROVAL: Email Templates → the "booking approved" template's ID
 // - EMAILJS_TEMPLATE_DETAILS_CONFIRMED: Email Templates → the "details confirmed" template's ID
 //
@@ -10,5 +11,6 @@
 
 export const EMAILJS_PUBLIC_KEY = "REPLACE_ME";
 export const EMAILJS_SERVICE_ID = "REPLACE_ME";
+export const EMAILJS_TEMPLATE_REQUEST_RECEIVED = "REPLACE_ME";
 export const EMAILJS_TEMPLATE_APPROVAL = "REPLACE_ME";
 export const EMAILJS_TEMPLATE_DETAILS_CONFIRMED = "REPLACE_ME";

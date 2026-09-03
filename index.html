@@ -122,11 +122,13 @@
     <h2>Request sent</h2>
     <p>Thank you — your booking request has been sent to the council for review.</p>
     <p>Your reference number is <strong id="confirm-ref"></strong>. We'll email <strong id="confirm-email"></strong> once it's been decided. If approved, you'll receive a follow-up form for insurance, event plan, risk assessment and payment details.</p>
+    <p id="confirm-email-status" style="font-size:0.85rem;color:var(--ink-faint);"></p>
     <a href="index.html" class="btn btn-secondary">Submit another request</a>
   </div>
 
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 <script type="module" src="booking-form.js"></script>
 </body>
 </html>

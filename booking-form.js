@@ -5,6 +5,11 @@ import {
   collection, addDoc, getDocs, query, where,
   getCountFromServer, serverTimestamp, orderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import {
+  EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_REQUEST_RECEIVED
+} from "./emailjs-config.js";
+
+emailjs.init(EMAILJS_PUBLIC_KEY);
 
 const TOTAL_LIMIT = 28;
 const COMMERCIAL_LIMIT = 14;
@@ -200,6 +205,23 @@ form.addEventListener("submit", async (e) => {
     document.getElementById("confirm-ref").textContent = docRef.id.slice(0, 8).toUpperCase();
     document.getElementById("confirm-email").textContent = payload.organiserEmail;
     confirmView.scrollIntoView({ behavior: "smooth" });
+
+    const statusEl = document.getElementById("confirm-email-status");
+    try {
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_REQUEST_RECEIVED, {
+        to_email: payload.organiserEmail,
+        to_name: payload.organiserName,
+        reply_to: payload.organiserEmail,
+        event_title: payload.eventTitle,
+        site_name: payload.siteName,
+        event_date: payload.eventDate,
+      });
+      statusEl.textContent = "A confirmation email has been sent to you.";
+    } catch (err) {
+      console.error("EmailJS send failed", err);
+      // Non-blocking — the request is already saved, a missed email isn't critical.
+      statusEl.textContent = "";
+    }
   } catch (err) {
     console.error(err);
     showError("Something went wrong sending your request. Please try again, or contact the parish clerk directly.");

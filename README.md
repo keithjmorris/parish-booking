@@ -72,31 +72,34 @@ will fail until the composite indexes exist.
 
 ## 5. Set up automatic emails (EmailJS)
 
-Two emails send automatically, both straight from the browser (no server needed):
+Three emails send automatically, all straight from the browser (no server needed):
 
-1. **Booking approved** — sent the moment a council member clicks Approve, containing the follow-up link for insurance/event plan/risk assessment/payment.
-2. **Details confirmed** — sent the moment an organiser submits that follow-up form, confirming everything's been received.
+1. **Request received** — sent the moment someone submits the public booking form, before any council decision.
+2. **Booking approved** — sent the moment a council member clicks Approve, containing the follow-up link for insurance/event plan/risk assessment/payment.
+3. **Details confirmed** — sent the moment an organiser submits that follow-up form, confirming everything's been received.
 
-Anything beyond that — questions, back-and-forth about the risk assessment, etc. — happens as normal email, since both templates set Reply-To to the organiser's address.
+Anything beyond that — questions, back-and-forth about the risk assessment, etc. — happens as normal email, since all three templates set Reply-To to the organiser's address.
 
 **Setup:**
 
 1. Create a free account at [emailjs.com](https://www.emailjs.com) (200 emails/month free).
 2. **Email Services → Add New Service** — connect a mailbox (Gmail works well). Note the **Service ID**.
 3. **Account → General** — copy your **Public Key**.
-4. **Email Templates → Create New Template**, twice — once per email below. For each, set:
+4. **Email Templates → Create New Template**, three times — once per email below. For each, set:
    - **To Email**: `{{to_email}}`
    - **Reply To**: `{{reply_to}}`
    - **Subject** and **body**: your own wording, using the variables listed below wherever you want that data to appear.
    - Note each template's **Template ID**.
 
-   **Template 1 — booking approved.** Variables available: `to_email`, `to_name`, `event_title`, `site_name`, `event_date`, `start_time`, `end_time`, `follow_up_url`. The body should include `{{follow_up_url}}` as a link/button — that's the whole point of this email.
+   **Template 1 — request received.** Variables available: `to_email`, `to_name`, `event_title`, `site_name`, `event_date`.
 
-   **Template 2 — details confirmed.** Variables available: `to_email`, `to_name`, `event_title`, `site_name`, `event_date`.
+   **Template 2 — booking approved.** Variables available: `to_email`, `to_name`, `event_title`, `site_name`, `event_date`, `start_time`, `end_time`, `follow_up_url`. The body should include `{{follow_up_url}}` as a link/button — that's the whole point of this email.
 
-5. Fill in `emailjs-config.js` with your **Public Key**, **Service ID**, and the two **Template IDs**.
+   **Template 3 — details confirmed.** Variables available: `to_email`, `to_name`, `event_title`, `site_name`, `event_date`.
 
-If a send fails (bad config, over the free quota, network issue), nothing breaks — the booking is still approved / the details are still saved in Firestore either way, the dashboard just shows "Couldn't send the email automatically" and lets you copy the link and send it by hand instead. You can also click **Resend email** on any approved booking in the **Approved & upcoming** tab at any time.
+5. Fill in `emailjs-config.js` with your **Public Key**, **Service ID**, and the three **Template IDs**.
+
+If a send fails (bad config, over the free quota, network issue), nothing breaks — the booking is still saved / approved / detailed in Firestore either way. The request-received and details-confirmed emails fail silently (the on-screen confirmation message is enough either way); the approval email shows a visible warning in the dashboard and lets you copy the link and send it by hand instead. You can also click **Resend email** on any approved booking in the **Approved & upcoming** tab at any time.
 
 ## 6. Push to GitHub and connect Vercel
 
