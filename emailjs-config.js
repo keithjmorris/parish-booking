@@ -9,8 +9,8 @@
 //
 // See README.md for the exact template variables each one expects.
 
-export const EMAILJS_PUBLIC_KEY = "REPLACE_ME";
-export const EMAILJS_SERVICE_ID = "REPLACE_ME";
-export const EMAILJS_TEMPLATE_REQUEST_RECEIVED = "REPLACE_ME";
-export const EMAILJS_TEMPLATE_APPROVAL = "REPLACE_ME";
+export const EMAILJS_PUBLIC_KEY = "P72ADFxlVsyjLgXEb";
+export const EMAILJS_SERVICE_ID = "service_nb5h7d7";
+export const EMAILJS_TEMPLATE_REQUEST_RECEIVED = "template_yr8mipi";
+export const EMAILJS_TEMPLATE_APPROVAL = "template_3v50skh";
 export const EMAILJS_TEMPLATE_DETAILS_CONFIRMED = "REPLACE_ME";
