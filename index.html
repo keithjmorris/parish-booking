@@ -111,22 +111,28 @@
 
         <div class="field">
           <label>Dates</label>
-          <div class="hint" style="margin-top:-2px;margin-bottom:10px;">Add each date you need. For a regular weekly booking (like a Monday auction), use the weekly shortcut below.</div>
+          <div class="hint" style="margin-top:-2px;margin-bottom:10px;">Every date you need shows up as a tag in the list below — add them one at a time, or use the weekly-repeat option underneath to add several at once.</div>
 
           <div id="dates-list" class="dates-list"></div>
           <div id="dates-empty" class="hint" style="margin:6px 0 14px 0;">No dates added yet.</div>
 
-          <div class="field-row" style="align-items:flex-end;">
-            <div class="field" style="margin-bottom:0;">
-              <label for="singleDate">Add a date</label>
-              <input type="date" id="singleDate">
+          <div class="date-add-box">
+            <div class="date-add-box__label">Add one date</div>
+            <div class="field-row" style="align-items:flex-end;">
+              <div class="field" style="margin-bottom:0;">
+                <label for="singleDate">Date</label>
+                <input type="date" id="singleDate">
+              </div>
+              <div class="field" style="margin-bottom:0;">
+                <label class="visually-hidden" for="add-single-date">Add this date</label>
+                <button type="button" class="btn-secondary btn-small" id="add-single-date">Add date</button>
+              </div>
             </div>
-            <button type="button" class="btn-secondary btn-small" id="add-single-date" style="margin-bottom:18px;">Add date</button>
           </div>
 
-          <details style="margin-top:6px;">
-            <summary style="cursor:pointer;font-size:0.85rem;color:var(--ink-soft);">Add a weekly recurring date (e.g. every Monday)</summary>
-            <div class="field-row" style="margin-top:12px;align-items:flex-end;">
+          <div class="date-add-box date-add-box--recurring">
+            <div class="date-add-box__label">Or repeat weekly (e.g. every Monday, for the summer auction)</div>
+            <div class="field-row" style="align-items:flex-end;">
               <div class="field" style="margin-bottom:0;">
                 <label for="weeklyDay">Day of week</label>
                 <select id="weeklyDay">
@@ -147,9 +153,13 @@
                 <label for="weeklyEnd">Until</label>
                 <input type="date" id="weeklyEnd">
               </div>
-              <button type="button" class="btn-secondary btn-small" id="add-weekly-dates" style="margin-bottom:18px;">Add dates</button>
+              <div class="field" style="margin-bottom:0;">
+                <label class="visually-hidden" for="add-weekly-dates">Add these weekly dates</label>
+                <button type="button" class="btn-secondary btn-small" id="add-weekly-dates">Add dates</button>
+              </div>
             </div>
-          </details>
+            <div class="hint" style="margin-top:8px;margin-bottom:0;">This adds every matching day between the two dates straight into the list above — you can still remove individual ones afterwards.</div>
+          </div>
 
           <div id="dates-error" style="display:none;">
             <div class="notice notice--error">Please add at least one date.</div>

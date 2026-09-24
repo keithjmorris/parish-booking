@@ -56,11 +56,29 @@ function renderGreensMap() {
     ellipse.setAttribute("tabindex", "0");
     ellipse.setAttribute("role", "button");
     ellipse.setAttribute("aria-label", `${site.name} — toggle selection`);
+    // Inline fallback so the map still reads correctly even if styles.css
+    // hasn't loaded yet (e.g. mid-deploy) — the CSS class still wins once it's there.
+    ellipse.style.cssText = "fill:#E4EBE3;stroke:#B9B3A0;stroke-width:1.5px;cursor:pointer;transition:fill 0.12s,stroke 0.12s;";
     ellipse.addEventListener("click", () => toggleGreen(site.id));
     ellipse.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleGreen(site.id); }
     });
+    ellipse.addEventListener("mouseenter", () => {
+      if (!selectedGreenIds.has(site.id)) { ellipse.style.fill = "#F1E7CE"; ellipse.style.stroke = "#A9822C"; }
+    });
+    ellipse.addEventListener("mouseleave", () => syncGreenVisuals());
     svg.appendChild(ellipse);
+
+    // A small light "halo" behind the number keeps it legible whatever the
+    // shape's fill colour ends up being (selected/unselected/hover).
+    const halo = document.createElementNS(ns, "circle");
+    halo.setAttribute("cx", layout.cx);
+    halo.setAttribute("cy", layout.cy);
+    halo.setAttribute("r", 11);
+    halo.setAttribute("class", "green-label-halo");
+    halo.setAttribute("data-site-id", site.id);
+    halo.style.cssText = "fill:#FFFFFF;opacity:0.75;pointer-events:none;";
+    svg.appendChild(halo);
 
     const text = document.createElementNS(ns, "text");
     text.setAttribute("x", layout.cx);
@@ -68,7 +86,7 @@ function renderGreensMap() {
     text.setAttribute("class", "green-label");
     text.setAttribute("data-site-id", site.id);
     text.textContent = site.number;
-    text.style.pointerEvents = "none";
+    text.style.cssText = "pointer-events:none;font-family:var(--font-body,sans-serif);font-size:13px;font-weight:600;fill:#14291D;text-anchor:middle;dominant-baseline:middle;";
     svg.appendChild(text);
   });
   syncGreenVisuals();
@@ -106,10 +124,19 @@ function syncGreenVisuals() {
   document.querySelectorAll("#greens-map .green-shape").forEach(el => {
     const on = selectedGreenIds.has(el.dataset.siteId);
     el.classList.toggle("is-selected", on);
+    // Drive the colour directly (rather than relying only on the CSS class)
+    // so selection always reads correctly even if the stylesheet is stale.
+    el.style.fill = on ? "#1F3D2B" : "#E4EBE3";
+    el.style.stroke = on ? "#14291D" : "#B9B3A0";
   });
   document.querySelectorAll("#greens-map .green-label").forEach(el => {
+    // The white halo behind each number means it stays legible on any
+    // fill colour, so the label itself always stays dark.
+    el.style.fill = "#14291D";
+  });
+  document.querySelectorAll("#greens-map .green-label-halo").forEach(el => {
     const on = selectedGreenIds.has(el.dataset.siteId);
-    el.classList.toggle("is-selected", on);
+    el.style.opacity = on ? "1" : "0.75";
   });
   document.querySelectorAll("#greens-list input[type=checkbox]").forEach(el => {
     el.checked = selectedGreenIds.has(el.dataset.siteId);
@@ -211,11 +238,21 @@ function renderDates() {
   dates.forEach(d => {
     const chip = document.createElement("span");
     chip.className = "date-chip";
-    chip.innerHTML = `${fmtDateShort(d)} <button type="button" aria-label="Remove date">&times;</button>`;
-    chip.querySelector("button").addEventListener("click", () => {
+    // Inline fallback layout in case the stylesheet hasn't loaded/deployed yet —
+    // keeps the chip on one line either way.
+    chip.style.cssText = "display:inline-flex;flex-shrink:0;white-space:nowrap;align-items:center;gap:8px;";
+    chip.textContent = fmtDateShort(d) + " ";
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.setAttribute("aria-label", "Remove date");
+    removeBtn.textContent = "×";
+    removeBtn.style.cssText = "flex-shrink:0;";
+    removeBtn.addEventListener("click", () => {
       dates = dates.filter(x => x !== d);
       renderDates();
     });
+    chip.appendChild(removeBtn);
     list.appendChild(chip);
   });
   document.getElementById("dates-error").style.display = "none";

@@ -306,6 +306,118 @@ button, .btn {
   color: var(--alert);
 }
 
+/* Location toggles / panels ---------------------------------------------- */
+
+.loc-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.loc-toggle {
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.loc-toggle:hover { background: var(--forest-tint); }
+
+.loc-toggle.is-active {
+  background: var(--forest);
+  border-color: var(--forest);
+  color: #fff;
+}
+
+.loc-panel {
+  border: 1px solid var(--border);
+  border-top: none;
+  background: var(--surface-recessed);
+  margin-top: -1px;
+}
+
+.loc-panel__inner { padding: 18px 20px; }
+
+.loc-panel + .field { margin-top: 20px; }
+
+/* Greens map --------------------------------------------------------- */
+
+.green-shape {
+  fill: var(--forest-tint);
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+  cursor: pointer;
+}
+
+.green-shape:hover { fill: var(--brass-tint); stroke: var(--brass); }
+
+.green-shape.is-selected {
+  fill: var(--forest);
+  stroke: var(--forest-dark);
+}
+
+.green-label {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--forest-dark);
+  pointer-events: none;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.green-label-halo { fill: #fff; opacity: 0.75; pointer-events: none; }
+
+.green-list-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.green-list-row input { width: auto; }
+
+/* Dates list ------------------------------------------------------------ */
+
+.dates-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.date-chip {
+  display: inline-flex;
+  flex-shrink: 0;
+  white-space: nowrap;
+  align-items: center;
+  gap: 8px;
+  background: var(--forest-tint);
+  color: var(--forest-dark);
+  border-radius: 999px;
+  padding: 6px 8px 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.date-chip button {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--forest-dark);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+  border-radius: 999px;
+}
+
+.date-chip button:hover { background: rgba(0,0,0,0.08); }
+
 /* Tables / lists -------------------------------------------------------- */
 
 .request-item {
@@ -410,7 +522,39 @@ button, .btn {
   padding: 20px 0;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.date-add-box {
+  border: 1px solid var(--border);
+  background: var(--surface-recessed);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.date-add-box__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: 10px;
+}
+
+.date-add-box--recurring {
+  background: var(--brass-tint);
+  border-color: var(--brass);
+}
+
 @media (max-width: 520px) {
-  .field-row { flex-direction: column; gap: 0; }
+  .field-row { flex-direction: column; gap: 10px; }
+  .field-row > .field { margin-bottom: 0 !important; }
   .request-item__top { flex-direction: column; }
 }
