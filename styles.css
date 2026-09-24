@@ -186,7 +186,7 @@ a { color: var(--forest); }
   display: flex;
   gap: 16px;
 }
-.field-row > .field { flex: 1; }
+.field-row > .field { flex: 1; min-width: 0; }
 
 input[type="text"],
 input[type="email"],
