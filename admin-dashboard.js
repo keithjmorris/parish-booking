@@ -396,11 +396,25 @@ document.getElementById("delete-all-sites-btn").addEventListener("click", async 
   }
 });
 
+// Firestore fires one snapshot per write, so seeding 11 sites in a row
+// fires 11 overlapping snapshot events in quick succession. Each render
+// below needs to fetch capacity data (an awaited network call) before it
+// can draw anything, so without this guard an older, still-in-flight
+// render can finish and append its rows *after* a newer render has
+// already cleared and redrawn the list — leaving stray duplicate rows
+// behind even though the underlying Firestore data was never duplicated.
+// renderGen ensures only the most recently started render is ever allowed
+// to touch the DOM; every earlier one silently drops its result instead.
+let sitesRenderGen = 0;
+
 function startSitesListener() {
   const q = query(siteCollection(), orderBy("name", "asc"));
   onSnapshot(q, async (snap) => {
+    const myGen = ++sitesRenderGen;
     const list = document.getElementById("sites-list");
+
     if (snap.empty) {
+      if (myGen !== sitesRenderGen) return;
       list.innerHTML = `<div class="empty-state">No sites added yet.</div>`;
       return;
     }
@@ -409,10 +423,17 @@ function startSitesListener() {
     const groups = groupSitesByType(sites);
     const ordered = [...groups.green, ...groups.playing_field, ...groups.pavilion, ...groups.other];
 
+    // Fetch every site's usage concurrently first — no DOM writes happen
+    // until all the data is in hand, so there's nothing for a newer render
+    // to interleave with.
+    const usageBySite = await getUsageForSites(ordered.map(s => s.id));
+
+    if (myGen !== sitesRenderGen) return; // a newer snapshot has since started — drop this stale render
+
     list.innerHTML = "";
     for (const site of ordered) {
       const id = site.id;
-      const usage = (await getUsageForSites([id]))[id];
+      const usage = usageBySite[id];
 
       const el = document.createElement("div");
       el.className = "request-item";
