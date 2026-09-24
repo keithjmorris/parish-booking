@@ -3,7 +3,7 @@
 import { db, auth } from "./firebase-config.js";
 import {
   collection, doc, addDoc, updateDoc, getDoc, getDocs, onSnapshot,
-  query, where, orderBy, serverTimestamp
+  query, where, orderBy, serverTimestamp, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
   signInWithEmailAndPassword, onAuthStateChanged, signOut
@@ -324,10 +324,15 @@ function startApprovedListener() {
 
 // ---- Sites tab ----------------------------------------------------------
 
+// Fixed document IDs (not auto-generated) so this seed step is safe to run
+// more than once — a double-click, a page reload mid-write, or two people
+// clicking it from different tabs can never create duplicates, because each
+// site always lands on the exact same document ID and the transaction below
+// only ever writes it once.
 const DEFAULT_SITES = [
-  ...Array.from({ length: 9 }, (_, i) => ({ name: `Green ${i + 1}`, type: "green", number: i + 1 })),
-  { name: "Playing Field", type: "playing_field" },
-  { name: "Pavilion", type: "pavilion" },
+  ...Array.from({ length: 9 }, (_, i) => ({ id: `seed-green-${i + 1}`, name: `Green ${i + 1}`, type: "green", number: i + 1 })),
+  { id: "seed-playing-field", name: "Playing Field", type: "playing_field" },
+  { id: "seed-pavilion", name: "Pavilion", type: "pavilion" },
 ];
 
 document.getElementById("newSiteType").addEventListener("change", (e) => {
@@ -339,15 +344,21 @@ document.getElementById("seed-sites-btn").addEventListener("click", async () => 
   btn.disabled = true;
   btn.textContent = "Creating…";
   try {
-    const existing = await getDocs(siteCollection());
-    const existingNames = new Set(existing.docs.map(d => d.data().name));
-    const toCreate = DEFAULT_SITES.filter(s => !existingNames.has(s.name));
-    if (toCreate.length === 0) {
-      alert("The standard sites already exist.");
-    } else {
-      await Promise.all(toCreate.map(s => addDoc(siteCollection(), { ...s, active: true, createdAt: serverTimestamp() })));
-      alert(`Created ${toCreate.length} site(s).`);
+    let createdCount = 0;
+    for (const s of DEFAULT_SITES) {
+      const { id, ...data } = s;
+      const ref = doc(db, "sites", id);
+      const created = await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        if (snap.exists()) return false;
+        tx.set(ref, { ...data, active: true, createdAt: serverTimestamp() });
+        return true;
+      });
+      if (created) createdCount++;
     }
+    alert(createdCount === 0
+      ? "The standard sites already exist."
+      : `Created ${createdCount} site(s).`);
   } catch (err) {
     console.error(err);
     alert("Couldn't create the standard sites — check the console.");
