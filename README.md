@@ -12,10 +12,27 @@ documents, deployed as a static site on Vercel.
 | `index.html` / `booking-form.js` | Stage 1 — public booking request form |
 | `admin.html` / `admin-dashboard.js` | Stage 2 — council login, approve/reject, sites management |
 | `details.html` / `details-form.js` | Stage 3 — follow-up form, reached via emailed link, no login |
+| `locations.js` | Shared logic: site types, the greens map layout, capacity counting, date helpers — used by both the public form and the dashboard |
 | `firebase-config.js` | Firebase project keys + SDK init (shared by all three pages) |
 | `styles.css` | Shared styling |
 | `firestore.rules`, `storage.rules`, `firestore.indexes.json`, `firebase.json` | Security rules & index definitions |
 | `vercel.json` | Static hosting config |
+
+## Updating an existing deployment (schema change)
+
+This version changes the shape of a booking — a single site/date has become
+a **list of locations** (any mix of greens, the playing field, the
+pavilion) and a **list of dates**. Older bookings created before this
+change won't match the new shape and will display with blank locations/
+dates in the dashboard.
+
+If your existing bookings are just test data, the simplest path is to
+clear them out before deploying: **Firebase Console → Firestore Database →
+Data tab → `bookings` collection → select all documents → Delete**. Leave
+the `sites` and `councilMembers` collections alone — those aren't affected.
+
+Once cleared, follow step 3 below to (re)create your sites with the new
+numbered-greens structure, then redeploy the updated files as usual.
 
 ## 1. Create the Firebase project
 
@@ -51,9 +68,27 @@ Each council member gets their own login, as you asked for:
 
 ## 3. Add your sites
 
-You can add sites from the dashboard itself (**Sites** tab, once you're
-signed in) — no need to do this in the console. Each site just needs a name;
-it starts active.
+Sign in to the dashboard and open the **Sites** tab. Click **"Create
+standard sites"** to set up the whole starting list in one go: 9 numbered
+village greens (`Green 1`–`Green 9`), the **Playing Field**, and the
+**Pavilion**. You can rename any of them afterwards from the same tab
+(click **Rename**) — the greens are deliberately left as plain numbers
+so you can settle on names later without touching this setup step again.
+
+If you'd rather add sites one at a time, the same tab has an **"Add a
+site"** form with a **Type** selector (Village green / Playing field /
+Pavilion / Other). Greens need a **Number**, which is what places them on
+the map on the public form — pick any unused number.
+
+A site's **type** decides where it shows up on the public form:
+- **Village green** sites appear on the greens map/list under "Village
+  green(s)".
+- **Playing field** and **Pavilion** each show as their own toggle. If you
+  ever add more than one site of either type, the form currently only
+  offers the first active one it finds — this app assumes one playing
+  field and one pavilion.
+- **Other** sites aren't currently reachable from the public form (there's
+  no toggle for them) — they exist for future use or historical record only.
 
 ## 4. Deploy the security rules and indexes
 
@@ -122,23 +157,52 @@ as-is. Once deployed:
 Add `admin.html` to your bookmarks rather than advertising it — it's not
 linked from the public form except as a small "Council login" link.
 
-## How the booking limits work
+## How locations, dates and the booking limits work
 
-Each site is capped at **28 total approved bookings** and **14 approved
-commercial bookings**, counted from the `bookings` collection where
-`status == 'approved'`. The count is checked live when someone picks a site
-on the request form, and re-checked at submission time and again when a
-council member clicks Approve (since two requests could be approved out of
-order). Rejected and still-pending requests never count towards the limit —
-only approved ones do.
+A single booking can now cover **several locations and several dates at
+once** — for example, the annual craft fair books all 9 greens plus the
+playing field, for one date; the weekly auction books one green, for a
+dozen Monday dates across a summer.
+
+On the request form:
+- **Village green(s)**, **Playing field**, **Pavilion** and **Somewhere
+  else** are independent toggles — any combination can be selected together.
+- Greens are chosen on the schematic map (click a green to select/deselect
+  it) or from the list underneath, and there's an **"All greens"** shortcut.
+  The map is illustrative, not to scale or geographically accurate — see
+  `locations.js` → `GREEN_LAYOUT` to adjust the shapes if the real layout
+  changes.
+- The **Pavilion** is the only location with a time-of-day choice (All day
+  or By the hour) — greens and the playing field are always booked for the
+  whole day, since in practice bookings are never split by morning/afternoon.
+- **Dates** are added individually, or with a **weekly recurring**
+  shortcut (day of week + start/end date) that drops the matching Mondays
+  (or whichever day) straight into the date list, which can still be edited
+  by hand afterwards.
+
+**Capacity limit:** each site (each individual green, the playing field,
+the pavilion) is capped at **28 total approved uses** and **14 approved
+commercial uses**, counted independently per site. Every date in an
+approved booking that includes a given site counts as one use of that
+site — so a 12-date weekly booking of Green 1 uses up 12 of Green 1's 28,
+and a craft-fair booking of all 9 greens plus the playing field uses 1 of
+each of those 10 sites' limits, even though it's a single request. This
+applies the same way whether a site was booked on its own or as part of a
+multi-site "All greens" request.
+
+The count is checked live as locations/dates are chosen on the request
+form, re-checked at submission time, and re-checked again when a council
+member clicks Approve (since two requests could be approved out of order).
+Rejected and still-pending requests never count towards the limit — only
+approved ones do.
 
 This is currently an **all-time running count**, not reset yearly. If you'd
 rather it reset each calendar year (e.g. re-open capacity every January),
-the easiest change is to add a `year` field to each booking and filter the
-capacity queries by the current year — ask and this can be added.
+the easiest change is to filter the capacity queries by year from each
+date — ask and this can be added.
 
-"Other" (free-text) locations are never capacity-checked, since they're not
-tracked sites.
+The **"Somewhere else"** free-text option is never capacity-checked, since
+it's not a tracked site.
 
 ## Known limitations / good next steps
 
@@ -155,9 +219,14 @@ tracked sites.
 - **No calendar view yet** beyond the "Approved & upcoming" list — could
   add a proper month calendar, or an ICS export council members can add to
   Outlook/Google Calendar.
-- **Multi-day bookings** are supported in the form (`eventDate` /
-  `eventEndDate`) but the capacity count treats a multi-day event as a
-  single booking, not one-per-day.
+- **One playing field, one pavilion assumed.** If a second active site of
+  either type is ever added, the public form only offers the first one it
+  finds — it doesn't currently support choosing between two playing fields,
+  say.
+- **Greens are numbered, not named,** on purpose — rename them from the
+  Sites tab once you've settled on names locally. Numbers stay stable even
+  if you rename, so old bookings referencing "Green 3" won't be affected
+  by a later rename.
 
 ## Local testing
 

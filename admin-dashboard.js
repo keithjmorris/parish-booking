@@ -3,7 +3,7 @@
 import { db, auth } from "./firebase-config.js";
 import {
   collection, doc, addDoc, updateDoc, getDoc, getDocs, onSnapshot,
-  query, where, orderBy, serverTimestamp, getCountFromServer
+  query, where, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
   signInWithEmailAndPassword, onAuthStateChanged, signOut
@@ -11,11 +11,13 @@ import {
 import {
   EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_APPROVAL
 } from "./emailjs-config.js";
+import {
+  TOTAL_LIMIT, COMMERCIAL_LIMIT, SITE_TYPES,
+  loadActiveSites, groupSitesByType, getUsageForSites,
+  fmtDateList, summariseLocations
+} from "./locations.js";
 
 emailjs.init(EMAILJS_PUBLIC_KEY);
-
-const TOTAL_LIMIT = 28;
-const COMMERCIAL_LIMIT = 14;
 
 const loginView = document.getElementById("login-view");
 const dashboardView = document.getElementById("dashboard-view");
@@ -46,8 +48,6 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  // Confirm this account is a registered council member (set up by the clerk
-  // in Firestore under councilMembers/{uid} — see README).
   const memberDoc = await getDoc(doc(db, "councilMembers", user.uid));
   if (!memberDoc.exists()) {
     loginError.textContent = "This account isn't set up as a council member. Contact the clerk.";
@@ -83,25 +83,20 @@ document.querySelectorAll(".tab").forEach(tab => {
 
 // ---- Helpers ----------------------------------------------------------
 
-function fmtDate(iso, endIso) {
-  if (!iso) return "";
-  const opts = { day: "numeric", month: "short", year: "numeric" };
-  const start = new Date(iso + "T00:00:00").toLocaleDateString("en-GB", opts);
-  if (endIso && endIso !== iso) {
-    const end = new Date(endIso + "T00:00:00").toLocaleDateString("en-GB", opts);
-    return `${start} – ${end}`;
-  }
-  return start;
-}
-
 function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str ?? "";
   return div.innerHTML;
 }
 
-function siteCollection() { return collection(db, "sites"); }
 function bookingsCollection() { return collection(db, "bookings"); }
+function siteCollection() { return collection(db, "sites"); }
+
+function pavilionSummary(b) {
+  if (!b.pavilionMode) return "";
+  if (b.pavilionMode === "hourly") return ` (pavilion: ${escapeHtml(b.pavilionStart)}–${escapeHtml(b.pavilionEnd)})`;
+  return " (pavilion: all day)";
+}
 
 // ---- Pending tab --------------------------------------------------------
 
@@ -128,8 +123,8 @@ function startPendingListener() {
           <div>
             <div class="request-item__title">${escapeHtml(b.eventTitle)}</div>
             <div class="request-item__meta">
-              <div><strong>${escapeHtml(b.siteName)}</strong>${b.isOtherLocation ? " (not a listed site)" : ""}</div>
-              <div>${fmtDate(b.eventDate, b.eventEndDate)} · ${escapeHtml(b.startTime)}–${escapeHtml(b.endTime)}</div>
+              <div><strong>${escapeHtml(summariseLocations(b))}</strong>${pavilionSummary(b)}</div>
+              <div>${escapeHtml(fmtDateList(b.dates))}</div>
               <div>${escapeHtml(b.organiserName)} · ${escapeHtml(b.organiserEmail)} · ${escapeHtml(b.organiserPhone)}</div>
               ${b.organiserOrg ? `<div>${escapeHtml(b.organiserOrg)}</div>` : ""}
             </div>
@@ -165,23 +160,20 @@ function startPendingListener() {
 }
 
 async function approveBooking(id, booking) {
-  // Final capacity re-check at approval time (bookings can be approved out of
-  // request order, and other approvals may have happened since this request came in).
-  if (booking.siteId) {
-    const bookingsRef = bookingsCollection();
-    const totalSnap = await getCountFromServer(
-      query(bookingsRef, where("siteId", "==", booking.siteId), where("status", "==", "approved"))
-    );
-    if (totalSnap.data().count >= TOTAL_LIMIT) {
-      alert(`This site is already at its total limit of ${TOTAL_LIMIT} approved bookings.`);
-      return;
-    }
-    if (booking.isCommercial) {
-      const commSnap = await getCountFromServer(
-        query(bookingsRef, where("siteId", "==", booking.siteId), where("status", "==", "approved"), where("isCommercial", "==", true))
-      );
-      if (commSnap.data().count >= COMMERCIAL_LIMIT) {
-        alert(`This site is already at its commercial limit of ${COMMERCIAL_LIMIT} approved bookings.`);
+  const siteIds = booking.siteIds || [];
+  const dateCount = (booking.dates || []).length;
+
+  if (siteIds.length) {
+    const usage = await getUsageForSites(siteIds);
+    for (let i = 0; i < siteIds.length; i++) {
+      const u = usage[siteIds[i]];
+      const name = booking.siteNames[i];
+      if (u.total + dateCount > TOTAL_LIMIT) {
+        alert(`Can't approve — "${name}" only has ${TOTAL_LIMIT - u.total} of its ${TOTAL_LIMIT} total uses left, but this booking needs ${dateCount}.`);
+        return;
+      }
+      if (booking.isCommercial && u.commercial + dateCount > COMMERCIAL_LIMIT) {
+        alert(`Can't approve — "${name}" only has ${COMMERCIAL_LIMIT - u.commercial} of its ${COMMERCIAL_LIMIT} commercial uses left, but this booking needs ${dateCount}.`);
         return;
       }
     }
@@ -209,10 +201,10 @@ async function sendApprovalEmail(bookingId, token, booking) {
       to_name: booking.organiserName,
       reply_to: booking.organiserEmail,
       event_title: booking.eventTitle,
-      site_name: booking.siteName,
-      event_date: fmtDate(booking.eventDate, booking.eventEndDate),
-      start_time: booking.startTime,
-      end_time: booking.endTime,
+      site_name: summariseLocations(booking),
+      event_date: fmtDateList(booking.dates),
+      start_time: booking.pavilionStart || "",
+      end_time: booking.pavilionEnd || "",
       follow_up_url: url,
     });
     if (statusEl && !document.getElementById("link-modal").hidden) {
@@ -267,7 +259,7 @@ function showLinkModal(bookingId, token, booking) {
 // ---- Approved tab -------------------------------------------------------
 
 function startApprovedListener() {
-  const q = query(bookingsCollection(), where("status", "==", "approved"), orderBy("eventDate", "asc"));
+  const q = query(bookingsCollection(), where("status", "==", "approved"), orderBy("firstDate", "asc"));
   onSnapshot(q, (snap) => {
     const list = document.getElementById("approved-list");
     if (snap.empty) {
@@ -287,8 +279,8 @@ function startApprovedListener() {
           <div>
             <div class="request-item__title">${escapeHtml(b.eventTitle)}</div>
             <div class="request-item__meta">
-              <div><strong>${escapeHtml(b.siteName)}</strong></div>
-              <div>${fmtDate(b.eventDate, b.eventEndDate)} · ${escapeHtml(b.startTime)}–${escapeHtml(b.endTime)}</div>
+              <div><strong>${escapeHtml(summariseLocations(b))}</strong>${pavilionSummary(b)}</div>
+              <div>${escapeHtml(fmtDateList(b.dates))}</div>
               <div>${escapeHtml(b.organiserName)} · ${escapeHtml(b.organiserEmail)}</div>
             </div>
           </div>
@@ -332,6 +324,39 @@ function startApprovedListener() {
 
 // ---- Sites tab ----------------------------------------------------------
 
+const DEFAULT_SITES = [
+  ...Array.from({ length: 9 }, (_, i) => ({ name: `Green ${i + 1}`, type: "green", number: i + 1 })),
+  { name: "Playing Field", type: "playing_field" },
+  { name: "Pavilion", type: "pavilion" },
+];
+
+document.getElementById("newSiteType").addEventListener("change", (e) => {
+  document.getElementById("newSiteNumberField").hidden = e.target.value !== "green";
+});
+
+document.getElementById("seed-sites-btn").addEventListener("click", async () => {
+  const btn = document.getElementById("seed-sites-btn");
+  btn.disabled = true;
+  btn.textContent = "Creating…";
+  try {
+    const existing = await getDocs(siteCollection());
+    const existingNames = new Set(existing.docs.map(d => d.data().name));
+    const toCreate = DEFAULT_SITES.filter(s => !existingNames.has(s.name));
+    if (toCreate.length === 0) {
+      alert("The standard sites already exist.");
+    } else {
+      await Promise.all(toCreate.map(s => addDoc(siteCollection(), { ...s, active: true, createdAt: serverTimestamp() })));
+      alert(`Created ${toCreate.length} site(s).`);
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Couldn't create the standard sites — check the console.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Create standard sites (9 greens, playing field, pavilion)";
+  }
+});
+
 function startSitesListener() {
   const q = query(siteCollection(), orderBy("name", "asc"));
   onSnapshot(q, async (snap) => {
@@ -341,37 +366,60 @@ function startSitesListener() {
       return;
     }
 
-    list.innerHTML = "";
-    for (const docSnap of snap.docs) {
-      const site = docSnap.data();
-      const id = docSnap.id;
+    const sites = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const groups = groupSitesByType(sites);
+    const ordered = [...groups.green, ...groups.playing_field, ...groups.pavilion, ...groups.other];
 
-      const bookingsRef = bookingsCollection();
-      const [totalSnap, commSnap] = await Promise.all([
-        getCountFromServer(query(bookingsRef, where("siteId", "==", id), where("status", "==", "approved"))),
-        getCountFromServer(query(bookingsRef, where("siteId", "==", id), where("status", "==", "approved"), where("isCommercial", "==", true))),
-      ]);
-      const total = totalSnap.data().count;
-      const commercial = commSnap.data().count;
+    list.innerHTML = "";
+    for (const site of ordered) {
+      const id = site.id;
+      const usage = (await getUsageForSites([id]))[id];
 
       const el = document.createElement("div");
       el.className = "request-item";
       el.innerHTML = `
         <div class="request-item__top">
-          <div>
-            <div class="request-item__title">${escapeHtml(site.name)}</div>
-            <div class="capacity-line">${total}/${TOTAL_LIMIT} total · ${commercial}/${COMMERCIAL_LIMIT} commercial</div>
-            <div class="capacity-bar"><div class="capacity-bar__fill ${total >= TOTAL_LIMIT ? "is-full" : ""}" style="width:${Math.min(100, (total / TOTAL_LIMIT) * 100)}%;"></div></div>
+          <div style="flex:1;">
+            <div class="request-item__title site-name-display">${escapeHtml(site.name)}${site.type === "green" && site.number ? ` <span style="color:var(--ink-faint);font-weight:400;">#${site.number}</span>` : ""}</div>
+            <div class="field" style="display:none;margin:6px 0 0 0;" data-rename-field>
+              <input type="text" value="${escapeHtml(site.name)}" style="max-width:280px;">
+            </div>
+            <div class="capacity-line">${SITE_TYPES[site.type] || SITE_TYPES.other} · ${usage.total}/${TOTAL_LIMIT} total · ${usage.commercial}/${COMMERCIAL_LIMIT} commercial</div>
+            <div class="capacity-bar"><div class="capacity-bar__fill ${usage.total >= TOTAL_LIMIT ? "is-full" : ""}" style="width:${Math.min(100, (usage.total / TOTAL_LIMIT) * 100)}%;"></div></div>
           </div>
           <span class="badge ${site.active ? "badge--approved" : "badge--rejected"}">${site.active ? "Active" : "Inactive"}</span>
         </div>
         <div class="request-item__actions">
+          <button class="btn-secondary btn-small" data-action="rename">Rename</button>
           <button class="btn-secondary btn-small" data-action="toggle">${site.active ? "Deactivate" : "Reactivate"}</button>
         </div>
       `;
+
       el.querySelector('[data-action="toggle"]').addEventListener("click", () => {
         updateDoc(doc(db, "sites", id), { active: !site.active });
       });
+
+      const renameBtn = el.querySelector('[data-action="rename"]');
+      const renameField = el.querySelector('[data-rename-field]');
+      const nameDisplay = el.querySelector('.site-name-display');
+      const renameInput = renameField.querySelector('input');
+      renameBtn.addEventListener("click", async () => {
+        if (renameField.style.display === "none") {
+          renameField.style.display = "block";
+          nameDisplay.style.display = "none";
+          renameBtn.textContent = "Save";
+          renameInput.focus();
+        } else {
+          const newName = renameInput.value.trim();
+          if (newName && newName !== site.name) {
+            await updateDoc(doc(db, "sites", id), { name: newName });
+          }
+          renameField.style.display = "none";
+          nameDisplay.style.display = "block";
+          renameBtn.textContent = "Rename";
+        }
+      });
+
       list.appendChild(el);
     }
   });
@@ -381,16 +429,26 @@ document.getElementById("add-site-form").addEventListener("submit", async (e) =>
   e.preventDefault();
   const input = document.getElementById("newSiteName");
   const name = input.value.trim();
+  const type = document.getElementById("newSiteType").value;
   if (!name) return;
-  await addDoc(siteCollection(), { name, active: true, createdAt: serverTimestamp() });
+  const payload = { name, type, active: true, createdAt: serverTimestamp() };
+  if (type === "green") {
+    const num = Number(document.getElementById("newSiteNumber").value);
+    if (num) payload.number = num;
+  }
+  await addDoc(siteCollection(), payload);
   input.value = "";
+  document.getElementById("newSiteNumber").value = "";
 });
 
 // ---- CSV export -----------------------------------------------------
 
 const CSV_COLUMNS = [
-  "id", "status", "eventTitle", "siteName", "isOtherLocation",
-  "eventDate", "eventEndDate", "startTime", "endTime", "isCommercial",
+  "id", "status", "eventTitle",
+  "siteNames", "siteTypes", "allGreensSelected", "otherLocationText",
+  "dates", "firstDate", "lastDate",
+  "pavilionMode", "pavilionStart", "pavilionEnd",
+  "isCommercial",
   "organiserName", "organiserEmail", "organiserPhone", "organiserOrg", "description",
   "createdAt", "approvedAt", "approvedBy",
   "rejectedAt", "rejectedBy", "rejectionReason",
@@ -419,12 +477,16 @@ function bookingToRow(id, b) {
     id,
     status: b.status,
     eventTitle: b.eventTitle,
-    siteName: b.siteName,
-    isOtherLocation: b.isOtherLocation,
-    eventDate: b.eventDate,
-    eventEndDate: b.eventEndDate,
-    startTime: b.startTime,
-    endTime: b.endTime,
+    siteNames: (b.siteNames || []).join(" | "),
+    siteTypes: (b.siteTypes || []).join(" | "),
+    allGreensSelected: b.allGreensSelected,
+    otherLocationText: b.otherLocationText,
+    dates: (b.dates || []).join(" | "),
+    firstDate: b.firstDate,
+    lastDate: b.lastDate,
+    pavilionMode: b.pavilionMode,
+    pavilionStart: b.pavilionStart,
+    pavilionEnd: b.pavilionEnd,
     isCommercial: b.isCommercial,
     organiserName: b.organiserName,
     organiserEmail: b.organiserEmail,

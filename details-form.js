@@ -7,6 +7,7 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
 import {
   EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_DETAILS_CONFIRMED
 } from "./emailjs-config.js";
+import { fmtDateList, summariseLocations } from "./locations.js";
 
 emailjs.init(EMAILJS_PUBLIC_KEY);
 
@@ -57,8 +58,9 @@ async function init() {
   detailsView.hidden = false;
 
   document.getElementById("event-title-heading").textContent = bookingData.eventTitle;
-  document.getElementById("event-summary").textContent =
-    `${bookingData.siteName} — ${bookingData.eventDate}${bookingData.eventEndDate && bookingData.eventEndDate !== bookingData.eventDate ? " to " + bookingData.eventEndDate : ""}, ${bookingData.startTime}–${bookingData.endTime}`;
+  let summary = `${summariseLocations(bookingData)} — ${fmtDateList(bookingData.dates)}`;
+  if (bookingData.pavilionMode === "hourly") summary += ` (pavilion: ${bookingData.pavilionStart}–${bookingData.pavilionEnd})`;
+  document.getElementById("event-summary").textContent = summary;
 
   // Pre-fill if details were already submitted, so the organiser can amend them.
   const d = bookingData.details;
@@ -146,8 +148,8 @@ form.addEventListener("submit", async (e) => {
         to_name: bookingData.organiserName,
         reply_to: bookingData.organiserEmail,
         event_title: bookingData.eventTitle,
-        site_name: bookingData.siteName,
-        event_date: bookingData.eventDate,
+        site_name: summariseLocations(bookingData),
+        event_date: fmtDateList(bookingData.dates),
       });
       statusEl.textContent = "A confirmation email has been sent to you.";
     } catch (err) {

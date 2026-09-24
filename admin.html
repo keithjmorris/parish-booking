@@ -64,12 +64,31 @@
     </section>
 
     <section id="tab-sites" class="tab-panel" hidden>
+      <div class="card" id="seed-sites-card">
+        <div class="section-label">Quick setup</div>
+        <p style="margin-bottom:12px;">No sites yet? Create the standard set in one click: 9 numbered village greens, the playing field, and the pavilion. You can rename anything afterwards.</p>
+        <button type="button" class="btn-primary btn-small" id="seed-sites-btn">Create standard sites (9 greens, playing field, pavilion)</button>
+      </div>
+
       <div class="card">
         <div class="section-label">Add a site</div>
-        <form id="add-site-form" style="display:flex;gap:10px;align-items:flex-end;">
-          <div class="field" style="flex:1;margin-bottom:0;">
+        <form id="add-site-form" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+          <div class="field" style="flex:1;min-width:160px;margin-bottom:0;">
             <label for="newSiteName">Site name</label>
             <input type="text" id="newSiteName" placeholder="e.g. Village Hall" required>
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label for="newSiteType">Type</label>
+            <select id="newSiteType">
+              <option value="green">Village green</option>
+              <option value="playing_field">Playing field</option>
+              <option value="pavilion">Pavilion</option>
+              <option value="other" selected>Other</option>
+            </select>
+          </div>
+          <div class="field" id="newSiteNumberField" style="margin-bottom:0;" hidden>
+            <label for="newSiteNumber">Number (for the map)</label>
+            <input type="number" id="newSiteNumber" min="1" max="99" style="width:80px;">
           </div>
           <button type="submit" class="btn-primary">Add site</button>
         </form>

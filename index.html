@@ -44,38 +44,115 @@
         </div>
 
         <div class="field">
-          <label for="siteSelect">Location requested</label>
-          <select id="siteSelect" name="siteSelect" required>
-            <option value="" disabled selected>Loading sites…</option>
-          </select>
-          <div id="capacity-info" class="capacity-line" hidden></div>
-          <div class="capacity-bar" id="capacity-bar" hidden><div class="capacity-bar__fill" id="capacity-bar-fill"></div></div>
-        </div>
-
-        <div class="field" id="otherLocationField" hidden>
-          <label for="otherLocation">Please specify the location</label>
-          <input type="text" id="otherLocation" name="otherLocation">
-        </div>
-
-        <div class="field-row">
-          <div class="field">
-            <label for="eventDate">Date</label>
-            <input type="date" id="eventDate" name="eventDate" required>
-          </div>
-          <div class="field">
-            <label for="eventEndDate">End date <span style="font-weight:400;color:var(--ink-faint);">(if more than one day)</span></label>
-            <input type="date" id="eventEndDate" name="eventEndDate">
+          <label>Where do you want to hold this?</label>
+          <div class="hint" style="margin-top:-2px;margin-bottom:10px;">Choose one or more. Most requests are for a single green, the playing field, or the pavilion — but you can combine them, for example an event using every green plus the playing field.</div>
+          <div class="loc-toggles" id="loc-toggles">
+            <button type="button" class="loc-toggle" data-loc="green">Village green(s)</button>
+            <button type="button" class="loc-toggle" data-loc="playing_field">Playing field</button>
+            <button type="button" class="loc-toggle" data-loc="pavilion">Pavilion</button>
+            <button type="button" class="loc-toggle" data-loc="freetext">Somewhere else</button>
           </div>
         </div>
 
-        <div class="field-row">
-          <div class="field">
-            <label for="startTime">Start time</label>
-            <input type="time" id="startTime" name="startTime" required>
+        <div class="loc-panel" id="panel-green" hidden>
+          <div class="loc-panel__inner">
+            <div class="field-row" style="align-items:center;justify-content:space-between;margin-bottom:10px;">
+              <div class="section-label" style="border:none;padding:0;margin:0;">Village greens</div>
+              <label class="checkbox-row" style="margin:0;"><input type="checkbox" id="allGreens"><span>All greens</span></label>
+            </div>
+            <svg id="greens-map" viewBox="0 0 760 220" role="group" aria-label="Map of village greens — click a green to select it" style="width:100%;height:auto;border:1px solid var(--border);background:var(--surface-recessed);"></svg>
+            <details style="margin-top:10px;">
+              <summary style="cursor:pointer;font-size:0.85rem;color:var(--ink-soft);">Or choose from a list instead</summary>
+              <div id="greens-list" style="margin-top:10px;display:flex;flex-direction:column;gap:6px;"></div>
+            </details>
+            <div id="greens-capacity" class="capacity-line"></div>
           </div>
-          <div class="field">
-            <label for="endTime">End time</label>
-            <input type="time" id="endTime" name="endTime" required>
+        </div>
+
+        <div class="loc-panel" id="panel-playing_field" hidden>
+          <div class="loc-panel__inner">
+            <div id="playing-field-capacity" class="capacity-line"></div>
+          </div>
+        </div>
+
+        <div class="loc-panel" id="panel-pavilion" hidden>
+          <div class="loc-panel__inner">
+            <div class="section-label" style="border:none;padding:0;margin:0 0 10px 0;">Pavilion hire</div>
+            <div class="field">
+              <div class="checkbox-row"><input type="radio" name="pavilionMode" value="all_day" id="pavilionAllDay" checked><label for="pavilionAllDay" style="font-weight:400;">All day</label></div>
+              <div class="checkbox-row"><input type="radio" name="pavilionMode" value="hourly" id="pavilionHourly"><label for="pavilionHourly" style="font-weight:400;">By the hour</label></div>
+            </div>
+            <div class="field-row" id="pavilion-hours" hidden>
+              <div class="field">
+                <label for="pavilionStart">From</label>
+                <input type="time" id="pavilionStart">
+              </div>
+              <div class="field">
+                <label for="pavilionEnd">Until</label>
+                <input type="time" id="pavilionEnd">
+              </div>
+            </div>
+            <div id="pavilion-capacity" class="capacity-line"></div>
+          </div>
+        </div>
+
+        <div class="loc-panel" id="panel-freetext" hidden>
+          <div class="loc-panel__inner">
+            <div class="field" style="margin-bottom:0;">
+              <label for="otherLocation">Please describe the location</label>
+              <input type="text" id="otherLocation">
+            </div>
+          </div>
+        </div>
+
+        <div class="field" id="locations-error" style="display:none;">
+          <div class="notice notice--error">Please choose at least one location above.</div>
+        </div>
+
+        <div class="field">
+          <label>Dates</label>
+          <div class="hint" style="margin-top:-2px;margin-bottom:10px;">Add each date you need. For a regular weekly booking (like a Monday auction), use the weekly shortcut below.</div>
+
+          <div id="dates-list" class="dates-list"></div>
+          <div id="dates-empty" class="hint" style="margin:6px 0 14px 0;">No dates added yet.</div>
+
+          <div class="field-row" style="align-items:flex-end;">
+            <div class="field" style="margin-bottom:0;">
+              <label for="singleDate">Add a date</label>
+              <input type="date" id="singleDate">
+            </div>
+            <button type="button" class="btn-secondary btn-small" id="add-single-date" style="margin-bottom:18px;">Add date</button>
+          </div>
+
+          <details style="margin-top:6px;">
+            <summary style="cursor:pointer;font-size:0.85rem;color:var(--ink-soft);">Add a weekly recurring date (e.g. every Monday)</summary>
+            <div class="field-row" style="margin-top:12px;align-items:flex-end;">
+              <div class="field" style="margin-bottom:0;">
+                <label for="weeklyDay">Day of week</label>
+                <select id="weeklyDay">
+                  <option value="1">Monday</option>
+                  <option value="2">Tuesday</option>
+                  <option value="3">Wednesday</option>
+                  <option value="4">Thursday</option>
+                  <option value="5">Friday</option>
+                  <option value="6">Saturday</option>
+                  <option value="0">Sunday</option>
+                </select>
+              </div>
+              <div class="field" style="margin-bottom:0;">
+                <label for="weeklyStart">From</label>
+                <input type="date" id="weeklyStart">
+              </div>
+              <div class="field" style="margin-bottom:0;">
+                <label for="weeklyEnd">Until</label>
+                <input type="date" id="weeklyEnd">
+              </div>
+              <button type="button" class="btn-secondary btn-small" id="add-weekly-dates" style="margin-bottom:18px;">Add dates</button>
+            </div>
+          </details>
+
+          <div id="dates-error" style="display:none;">
+            <div class="notice notice--error">Please add at least one date.</div>
           </div>
         </div>
 
@@ -135,5 +212,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 <script type="module" src="booking-form.js"></script>
+
 </body>
 </html>

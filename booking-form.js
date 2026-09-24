@@ -2,125 +2,249 @@
 
 import { db } from "./firebase-config.js";
 import {
-  collection, addDoc, getDocs, query, where,
-  getCountFromServer, serverTimestamp, orderBy
+  collection, addDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
   EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_REQUEST_RECEIVED
 } from "./emailjs-config.js";
+import {
+  TOTAL_LIMIT, COMMERCIAL_LIMIT, GREEN_LAYOUT,
+  loadActiveSites, groupSitesByType, getUsageForSites,
+  fmtDateShort, fmtDateList, datesForWeeklyRange
+} from "./locations.js";
 
 emailjs.init(EMAILJS_PUBLIC_KEY);
 
-const TOTAL_LIMIT = 28;
-const COMMERCIAL_LIMIT = 14;
-
-const siteSelect = document.getElementById("siteSelect");
-const otherLocationField = document.getElementById("otherLocationField");
-const otherLocationInput = document.getElementById("otherLocation");
-const capacityInfo = document.getElementById("capacity-info");
-const capacityBar = document.getElementById("capacity-bar");
-const capacityBarFill = document.getElementById("capacity-bar-fill");
-const isCommercialInput = document.getElementById("isCommercial");
 const form = document.getElementById("booking-form");
 const submitBtn = document.getElementById("submit-btn");
 const formError = document.getElementById("form-error");
 
-let sitesCache = []; // [{id, name}]
+let siteGroups = { green: [], playing_field: [], pavilion: [], other: [] };
+let activeLocs = new Set(); // "green" | "playing_field" | "pavilion" | "freetext"
+let selectedGreenIds = new Set();
+let dates = []; // sorted ISO strings
 
-// ---- Load sites -----------------------------------------------------
+// ---- Load sites & build the greens map/list ------------------------------
 
 async function loadSites() {
-  siteSelect.innerHTML = "";
+  let sites = [];
   try {
-    const snap = await getDocs(
-      query(collection(db, "sites"), where("active", "==", true), orderBy("name"))
-    );
-    sitesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    sites = await loadActiveSites();
   } catch (err) {
     console.error("Failed to load sites", err);
-    sitesCache = [];
   }
+  siteGroups = groupSitesByType(sites);
+  renderGreensMap();
+  renderGreensList();
+  refreshCapacityDisplays();
+}
 
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = "Select a location…";
-  placeholder.disabled = true;
-  placeholder.selected = true;
-  siteSelect.appendChild(placeholder);
+function renderGreensMap() {
+  const svg = document.getElementById("greens-map");
+  svg.innerHTML = "";
+  siteGroups.green.forEach(site => {
+    const layout = GREEN_LAYOUT[site.number];
+    if (!layout) return;
+    const ns = "http://www.w3.org/2000/svg";
+    const ellipse = document.createElementNS(ns, "ellipse");
+    ellipse.setAttribute("cx", layout.cx);
+    ellipse.setAttribute("cy", layout.cy);
+    ellipse.setAttribute("rx", layout.rx);
+    ellipse.setAttribute("ry", layout.ry);
+    ellipse.setAttribute("class", "green-shape");
+    ellipse.setAttribute("data-site-id", site.id);
+    ellipse.setAttribute("tabindex", "0");
+    ellipse.setAttribute("role", "button");
+    ellipse.setAttribute("aria-label", `${site.name} — toggle selection`);
+    ellipse.addEventListener("click", () => toggleGreen(site.id));
+    ellipse.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleGreen(site.id); }
+    });
+    svg.appendChild(ellipse);
 
-  sitesCache.forEach(site => {
-    const opt = document.createElement("option");
-    opt.value = site.id;
-    opt.textContent = site.name;
-    siteSelect.appendChild(opt);
+    const text = document.createElementNS(ns, "text");
+    text.setAttribute("x", layout.cx);
+    text.setAttribute("y", layout.cy);
+    text.setAttribute("class", "green-label");
+    text.setAttribute("data-site-id", site.id);
+    text.textContent = site.number;
+    text.style.pointerEvents = "none";
+    svg.appendChild(text);
   });
-
-  const otherOpt = document.createElement("option");
-  otherOpt.value = "__other__";
-  otherOpt.textContent = "Other (please specify)";
-  siteSelect.appendChild(otherOpt);
+  syncGreenVisuals();
 }
 
-// ---- Capacity check for the selected site ----------------------------
-
-async function getSiteCounts(siteId) {
-  const bookingsRef = collection(db, "bookings");
-
-  const totalSnap = await getCountFromServer(
-    query(bookingsRef, where("siteId", "==", siteId), where("status", "==", "approved"))
-  );
-  const commercialSnap = await getCountFromServer(
-    query(
-      bookingsRef,
-      where("siteId", "==", siteId),
-      where("status", "==", "approved"),
-      where("isCommercial", "==", true)
-    )
-  );
-
-  return { total: totalSnap.data().count, commercial: commercialSnap.data().count };
+function renderGreensList() {
+  const list = document.getElementById("greens-list");
+  list.innerHTML = "";
+  siteGroups.green.forEach(site => {
+    const row = document.createElement("label");
+    row.className = "green-list-row";
+    row.innerHTML = `<input type="checkbox" data-site-id="${site.id}"> ${site.number}. ${escapeHtml(site.name)}`;
+    row.querySelector("input").addEventListener("change", (e) => {
+      if (e.target.checked) selectedGreenIds.add(site.id);
+      else selectedGreenIds.delete(site.id);
+      syncGreenVisuals();
+      refreshCapacityDisplays();
+    });
+    list.appendChild(row);
+  });
 }
 
-async function refreshCapacityDisplay() {
-  const siteId = siteSelect.value;
-  if (!siteId || siteId === "__other__") {
-    capacityInfo.hidden = true;
-    capacityBar.hidden = true;
-    return;
-  }
-
-  capacityInfo.hidden = false;
-  capacityInfo.textContent = "Checking availability…";
-  capacityBar.hidden = true;
-
-  try {
-    const counts = await getSiteCounts(siteId);
-    const totalPct = Math.min(100, (counts.total / TOTAL_LIMIT) * 100);
-    capacityBar.hidden = false;
-    capacityBarFill.style.width = `${totalPct}%`;
-    capacityBarFill.classList.toggle("is-full", counts.total >= TOTAL_LIMIT);
-
-    capacityInfo.textContent =
-      `${counts.total}/${TOTAL_LIMIT} total bookings used · ${counts.commercial}/${COMMERCIAL_LIMIT} commercial bookings used`;
-
-    if (counts.total >= TOTAL_LIMIT) {
-      capacityInfo.textContent += " — this site is fully booked and cannot take new requests.";
-    } else if (isCommercialInput.checked && counts.commercial >= COMMERCIAL_LIMIT) {
-      capacityInfo.textContent += " — commercial capacity reached for this site.";
-    }
-  } catch (err) {
-    console.error("Failed to check capacity", err);
-    capacityInfo.textContent = "Couldn't check availability — you can still submit and the council will confirm.";
-  }
+function toggleGreen(siteId) {
+  if (selectedGreenIds.has(siteId)) selectedGreenIds.delete(siteId);
+  else selectedGreenIds.add(siteId);
+  syncGreenVisuals();
+  refreshCapacityDisplays();
 }
 
-siteSelect.addEventListener("change", () => {
-  otherLocationField.hidden = siteSelect.value !== "__other__";
-  otherLocationInput.required = siteSelect.value === "__other__";
-  refreshCapacityDisplay();
+function syncGreenVisuals() {
+  const allGreensBox = document.getElementById("allGreens");
+  const allSelected = siteGroups.green.length > 0 && selectedGreenIds.size === siteGroups.green.length;
+  allGreensBox.checked = allSelected;
+
+  document.querySelectorAll("#greens-map .green-shape").forEach(el => {
+    const on = selectedGreenIds.has(el.dataset.siteId);
+    el.classList.toggle("is-selected", on);
+  });
+  document.querySelectorAll("#greens-map .green-label").forEach(el => {
+    const on = selectedGreenIds.has(el.dataset.siteId);
+    el.classList.toggle("is-selected", on);
+  });
+  document.querySelectorAll("#greens-list input[type=checkbox]").forEach(el => {
+    el.checked = selectedGreenIds.has(el.dataset.siteId);
+  });
+}
+
+document.getElementById("allGreens").addEventListener("change", (e) => {
+  selectedGreenIds = new Set(e.target.checked ? siteGroups.green.map(s => s.id) : []);
+  syncGreenVisuals();
+  refreshCapacityDisplays();
 });
 
-isCommercialInput.addEventListener("change", refreshCapacityDisplay);
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str ?? "";
+  return div.innerHTML;
+}
+
+// ---- Location toggles -----------------------------------------------------
+
+document.querySelectorAll(".loc-toggle").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const loc = btn.dataset.loc;
+    if (activeLocs.has(loc)) activeLocs.delete(loc);
+    else activeLocs.add(loc);
+    btn.classList.toggle("is-active", activeLocs.has(loc));
+    document.getElementById(`panel-${loc}`).hidden = !activeLocs.has(loc);
+    document.getElementById("locations-error").style.display = "none";
+    refreshCapacityDisplays();
+  });
+});
+
+document.getElementById("pavilionAllDay").addEventListener("change", updatePavilionHours);
+document.getElementById("pavilionHourly").addEventListener("change", updatePavilionHours);
+function updatePavilionHours() {
+  document.getElementById("pavilion-hours").hidden = !document.getElementById("pavilionHourly").checked;
+}
+
+document.getElementById("isCommercial").addEventListener("change", refreshCapacityDisplays);
+
+// ---- Capacity display -----------------------------------------------------
+
+async function refreshCapacityDisplays() {
+  const isCommercial = document.getElementById("isCommercial").checked;
+
+  if (activeLocs.has("green") && selectedGreenIds.size > 0) {
+    const el = document.getElementById("greens-capacity");
+    el.textContent = "Checking availability…";
+    const usage = await getUsageForSites([...selectedGreenIds]);
+    const lines = [...selectedGreenIds].map(id => {
+      const site = siteGroups.green.find(s => s.id === id);
+      const u = usage[id] || { total: 0, commercial: 0 };
+      let line = `${site ? site.name : id}: ${u.total}/${TOTAL_LIMIT} total, ${u.commercial}/${COMMERCIAL_LIMIT} commercial`;
+      if (u.total >= TOTAL_LIMIT) line += " — fully booked";
+      else if (isCommercial && u.commercial >= COMMERCIAL_LIMIT) line += " — commercial limit reached";
+      return line;
+    });
+    el.textContent = lines.join(" · ");
+  } else if (activeLocs.has("green")) {
+    document.getElementById("greens-capacity").textContent = "Select at least one green above.";
+  }
+
+  if (activeLocs.has("playing_field")) {
+    const el = document.getElementById("playing-field-capacity");
+    const site = siteGroups.playing_field[0];
+    if (site) {
+      el.textContent = "Checking availability…";
+      const usage = await getUsageForSites([site.id]);
+      const u = usage[site.id];
+      el.textContent = `${u.total}/${TOTAL_LIMIT} total, ${u.commercial}/${COMMERCIAL_LIMIT} commercial used${u.total >= TOTAL_LIMIT ? " — fully booked" : ""}`;
+    } else {
+      el.textContent = "The playing field isn't set up yet — the council will confirm availability.";
+    }
+  }
+
+  if (activeLocs.has("pavilion")) {
+    const el = document.getElementById("pavilion-capacity");
+    const site = siteGroups.pavilion[0];
+    if (site) {
+      el.textContent = "Checking availability…";
+      const usage = await getUsageForSites([site.id]);
+      const u = usage[site.id];
+      el.textContent = `${u.total}/${TOTAL_LIMIT} total, ${u.commercial}/${COMMERCIAL_LIMIT} commercial used${u.total >= TOTAL_LIMIT ? " — fully booked" : ""}`;
+    } else {
+      el.textContent = "The pavilion isn't set up yet — the council will confirm availability.";
+    }
+  }
+}
+
+// ---- Dates -----------------------------------------------------------
+
+function renderDates() {
+  const list = document.getElementById("dates-list");
+  const empty = document.getElementById("dates-empty");
+  dates.sort();
+  list.innerHTML = "";
+  empty.hidden = dates.length > 0;
+
+  dates.forEach(d => {
+    const chip = document.createElement("span");
+    chip.className = "date-chip";
+    chip.innerHTML = `${fmtDateShort(d)} <button type="button" aria-label="Remove date">&times;</button>`;
+    chip.querySelector("button").addEventListener("click", () => {
+      dates = dates.filter(x => x !== d);
+      renderDates();
+    });
+    list.appendChild(chip);
+  });
+  document.getElementById("dates-error").style.display = "none";
+}
+
+function addDate(iso) {
+  if (!iso) return;
+  if (!dates.includes(iso)) dates.push(iso);
+  renderDates();
+}
+
+document.getElementById("add-single-date").addEventListener("click", () => {
+  const input = document.getElementById("singleDate");
+  addDate(input.value);
+  input.value = "";
+});
+
+document.getElementById("add-weekly-dates").addEventListener("click", () => {
+  const weekday = document.getElementById("weeklyDay").value;
+  const start = document.getElementById("weeklyStart").value;
+  const end = document.getElementById("weeklyEnd").value;
+  if (!start || !end) {
+    alert("Please choose a start and end date for the weekly range.");
+    return;
+  }
+  const newDates = datesForWeeklyRange(weekday, start, end);
+  newDates.forEach(d => { if (!dates.includes(d)) dates.push(d); });
+  renderDates();
+});
 
 // ---- Submit -----------------------------------------------------------
 
@@ -134,20 +258,55 @@ form.addEventListener("submit", async (e) => {
   e.preventDefault();
   formError.hidden = true;
 
+  const otherText = document.getElementById("otherLocation").value.trim();
+  const hasFreetext = activeLocs.has("freetext") && otherText;
+  const hasGreens = activeLocs.has("green") && selectedGreenIds.size > 0;
+  const hasPlayingField = activeLocs.has("playing_field") && siteGroups.playing_field[0];
+  const hasPavilion = activeLocs.has("pavilion") && siteGroups.pavilion[0];
+
+  let locationsValid = hasFreetext || hasGreens || hasPlayingField || hasPavilion;
+  document.getElementById("locations-error").style.display = locationsValid ? "none" : "block";
+
+  const datesValid = dates.length > 0;
+  document.getElementById("dates-error").style.display = datesValid ? "none" : "block";
+
+  if (!locationsValid || !datesValid) {
+    if (!locationsValid) document.getElementById("locations-error").scrollIntoView({ behavior: "smooth", block: "center" });
+    else document.getElementById("dates-error").scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+
   if (!form.checkValidity()) {
     form.reportValidity();
     return;
   }
 
-  const siteId = siteSelect.value;
-  const isOther = siteId === "__other__";
-  const siteName = isOther ? otherLocationInput.value.trim() : siteSelect.options[siteSelect.selectedIndex].text;
-  const isCommercial = isCommercialInput.checked;
+  const siteIds = [];
+  const siteNames = [];
+  const siteTypes = [];
+  if (hasGreens) {
+    siteGroups.green.forEach(s => {
+      if (selectedGreenIds.has(s.id)) { siteIds.push(s.id); siteNames.push(s.name); siteTypes.push("green"); }
+    });
+  }
+  if (hasPlayingField) {
+    const s = siteGroups.playing_field[0];
+    siteIds.push(s.id); siteNames.push(s.name); siteTypes.push("playing_field");
+  }
+  if (hasPavilion) {
+    const s = siteGroups.pavilion[0];
+    siteIds.push(s.id); siteNames.push(s.name); siteTypes.push("pavilion");
+  }
 
-  const eventDate = document.getElementById("eventDate").value;
-  const eventEndDate = document.getElementById("eventEndDate").value || eventDate;
-  if (eventEndDate < eventDate) {
-    showError("End date can't be before the start date.");
+  const allGreensSelected = hasGreens && siteGroups.green.length > 0 && selectedGreenIds.size === siteGroups.green.length;
+
+  const isCommercial = document.getElementById("isCommercial").checked;
+  const pavilionMode = hasPavilion ? (document.getElementById("pavilionHourly").checked ? "hourly" : "all_day") : null;
+  const pavilionStart = pavilionMode === "hourly" ? document.getElementById("pavilionStart").value : null;
+  const pavilionEnd = pavilionMode === "hourly" ? document.getElementById("pavilionEnd").value : null;
+
+  if (pavilionMode === "hourly" && (!pavilionStart || !pavilionEnd)) {
+    showError("Please give a start and end time for the pavilion hire.");
     return;
   }
 
@@ -155,38 +314,42 @@ form.addEventListener("submit", async (e) => {
   submitBtn.textContent = "Checking availability…";
 
   // Re-check capacity at submit time to avoid a stale/raced count.
-  if (!isOther) {
-    try {
-      const counts = await getSiteCounts(siteId);
-      if (counts.total >= TOTAL_LIMIT) {
-        showError("Sorry — this site has reached its total booking limit (28 uses) and can't take new requests.");
+  try {
+    const usage = await getUsageForSites(siteIds);
+    for (const id of siteIds) {
+      const u = usage[id];
+      const name = siteNames[siteIds.indexOf(id)];
+      if (u.total + dates.length > TOTAL_LIMIT) {
+        showError(`Sorry — "${name}" doesn't have enough capacity left for all the dates you've chosen (limit is ${TOTAL_LIMIT} total uses).`);
         submitBtn.disabled = false;
         submitBtn.textContent = "Submit request";
         return;
       }
-      if (isCommercial && counts.commercial >= COMMERCIAL_LIMIT) {
-        showError("Sorry — this site has reached its commercial booking limit (14 uses). Non-commercial requests may still be possible.");
+      if (isCommercial && u.commercial + dates.length > COMMERCIAL_LIMIT) {
+        showError(`Sorry — "${name}" doesn't have enough commercial capacity left for all the dates you've chosen (limit is ${COMMERCIAL_LIMIT} commercial uses).`);
         submitBtn.disabled = false;
         submitBtn.textContent = "Submit request";
         return;
       }
-    } catch (err) {
-      console.error(err);
-      // Non-blocking — let the request through, council can catch it on review.
     }
+  } catch (err) {
+    console.error(err);
+    // Non-blocking — let the request through, council can catch it on review.
   }
 
   submitBtn.textContent = "Submitting…";
 
+  const sortedDates = [...dates].sort();
+
   const payload = {
     eventTitle: document.getElementById("eventTitle").value.trim(),
-    siteId: isOther ? null : siteId,
-    siteName,
-    isOtherLocation: isOther,
-    eventDate,
-    eventEndDate,
-    startTime: document.getElementById("startTime").value,
-    endTime: document.getElementById("endTime").value,
+    siteIds, siteNames, siteTypes,
+    allGreensSelected,
+    otherLocationText: hasFreetext ? otherText : "",
+    dates: sortedDates,
+    firstDate: sortedDates[0],
+    lastDate: sortedDates[sortedDates.length - 1],
+    pavilionMode, pavilionStart, pavilionEnd,
     isCommercial,
     description: document.getElementById("description").value.trim(),
     organiserName: document.getElementById("organiserName").value.trim(),
@@ -213,13 +376,12 @@ form.addEventListener("submit", async (e) => {
         to_name: payload.organiserName,
         reply_to: payload.organiserEmail,
         event_title: payload.eventTitle,
-        site_name: payload.siteName,
-        event_date: payload.eventDate,
+        site_name: siteNames.join(", ") || payload.otherLocationText,
+        event_date: fmtDateList(sortedDates),
       });
       statusEl.textContent = "A confirmation email has been sent to you.";
     } catch (err) {
       console.error("EmailJS send failed", err);
-      // Non-blocking — the request is already saved, a missed email isn't critical.
       statusEl.textContent = "";
     }
   } catch (err) {
@@ -230,4 +392,5 @@ form.addEventListener("submit", async (e) => {
   }
 });
 
+renderDates();
 loadSites();
