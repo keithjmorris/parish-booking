@@ -2,7 +2,7 @@
 
 import { db, auth } from "./firebase-config.js";
 import {
-  collection, doc, addDoc, updateDoc, getDoc, getDocs, onSnapshot,
+  collection, doc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, onSnapshot,
   query, where, orderBy, serverTimestamp, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
@@ -365,6 +365,34 @@ document.getElementById("seed-sites-btn").addEventListener("click", async () => 
   } finally {
     btn.disabled = false;
     btn.textContent = "Create standard sites (9 greens, playing field, pavilion)";
+  }
+});
+
+document.getElementById("delete-all-sites-btn").addEventListener("click", async () => {
+  const sure = confirm(
+    "Delete ALL sites? This can't be undone.\n\n" +
+    "Existing bookings won't be affected (they keep the site names they had " +
+    "at the time), but capacity checks for those sites will no longer work " +
+    "until you recreate them."
+  );
+  if (!sure) return;
+
+  const btn = document.getElementById("delete-all-sites-btn");
+  btn.disabled = true;
+  btn.textContent = "Deleting…";
+  try {
+    // getDocs fetches the whole collection in one call, unlike the Firestore
+    // console's list view, which is paginated and can leave documents behind
+    // if "select all" only grabs what's currently loaded on screen.
+    const snap = await getDocs(siteCollection());
+    await Promise.all(snap.docs.map(d => deleteDoc(doc(db, "sites", d.id))));
+    alert(`Deleted ${snap.size} site(s).`);
+  } catch (err) {
+    console.error(err);
+    alert("Couldn't delete all sites — check the console.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Delete ALL sites";
   }
 });
 
