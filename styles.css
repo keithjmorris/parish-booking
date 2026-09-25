@@ -556,7 +556,12 @@ button, .btn {
 }
 
 @media (max-width: 520px) {
-  .field-row { flex-direction: column; gap: 10px; }
-  .field-row > .field { margin-bottom: 0 !important; }
+  /* Once a field-row stacks into a column, align-items switches from
+     controlling vertical alignment to horizontal — so a row-mode
+     "align-items:flex-end" (bottom-aligning an input and its button)
+     would otherwise shove every stacked field over to the right. Force
+     it back to a normal full-width stack, whatever the row asked for. */
+  .field-row { flex-direction: column; gap: 10px; align-items: stretch !important; }
+  .field-row > .field { margin-bottom: 0 !important; width: 100%; }
   .request-item__top { flex-direction: column; }
 }
