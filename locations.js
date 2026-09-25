@@ -16,20 +16,25 @@ export const SITE_TYPES = {
   other: "Other",
 };
 
-// Fixed schematic layout for up to 9 greens, roughly following the real
-// west-to-east run of greens along the street, largest (most-used) green
-// at the west end. Purely illustrative — not to scale or geographically
-// accurate. Coordinates are in a 760x220 viewBox.
+// Greens map background image, its natural pixel size (this is also the
+// SVG viewBox used to overlay the clickable shapes below), and one
+// clickable polygon per green traced from that image — largest
+// (most-used) green at the west/left end, matching the real layout.
+// If the artwork is ever replaced, re-trace the shapes and regenerate
+// this block (ask Claude — it can do this from a new image).
+export const GREEN_MAP_IMAGE = "greens-map.png";
+export const GREEN_MAP_VIEWBOX = { width: 1800, height: 619 };
+
 export const GREEN_LAYOUT = {
-  1: { cx: 110, cy: 130, rx: 85, ry: 55 },
-  2: { cx: 230, cy: 95, rx: 40, ry: 28 },
-  3: { cx: 300, cy: 140, rx: 34, ry: 24 },
-  4: { cx: 370, cy: 90, rx: 32, ry: 22 },
-  5: { cx: 435, cy: 135, rx: 30, ry: 21 },
-  6: { cx: 500, cy: 90, rx: 28, ry: 20 },
-  7: { cx: 565, cy: 132, rx: 27, ry: 19 },
-  8: { cx: 628, cy: 92, rx: 26, ry: 18 },
-  9: { cx: 690, cy: 130, rx: 26, ry: 18 },
+  1: { points: [[392,289],[0,293],[0,587],[155,465],[285,408]], labelX: 142.6, labelY: 388.1 },
+  2: { points: [[588,435],[575,430],[306,499],[209,538],[145,580],[134,596],[180,597],[451,525],[589,498],[594,484]], labelX: 386.1, labelY: 511.9 },
+  3: { points: [[564,274],[557,269],[494,280],[476,287],[450,310],[392,373],[392,379],[399,381],[565,340],[570,334],[570,315]], labelX: 495.1, labelY: 323.6 },
+  4: { points: [[850,462],[807,415],[783,394],[648,416],[644,421],[653,485],[657,492],[739,478],[846,468]], labelX: 736.3, labelY: 443.1 },
+  5: { points: [[1149,209],[1113,144],[1089,130],[1029,132],[883,158],[799,180],[624,250],[619,268],[626,317],[632,325],[850,290],[1041,247]], labelX: 883.6, labelY: 224.1 },
+  6: { points: [[1017,426],[1012,358],[1005,348],[858,379],[858,387],[913,445],[928,454],[999,440],[1011,434]], labelX: 948.8, labelY: 400.9 },
+  7: { points: [[1211,303],[1198,294],[1184,294],[1065,334],[1064,354],[1075,424],[1091,424],[1152,408],[1247,389],[1250,384],[1248,372]], labelX: 1151.3, labelY: 360.2 },
+  8: { points: [[1520,258],[1454,201],[1439,199],[1264,266],[1258,271],[1258,277],[1304,359],[1316,369],[1328,370],[1371,355],[1450,318],[1519,266]], labelX: 1384.9, labelY: 282.4 },
+  9: { points: [[1799,20],[1656,97],[1539,153],[1537,163],[1584,189],[1651,201],[1719,197],[1799,174]], labelX: 1698.2, labelY: 132.2 },
 };
 
 // ---- Loading sites ------------------------------------------------------

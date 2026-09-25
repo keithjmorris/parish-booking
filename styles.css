@@ -347,23 +347,25 @@ button, .btn {
 
 /* Greens map --------------------------------------------------------- */
 
+/* The map is now the clerk's own artwork (greens-map.png) with clickable
+   shapes traced on top — colour is driven inline in booking-form.js so it
+   still works correctly even if this stylesheet is briefly stale, but
+   these rules keep the same look as a normal stylesheet-driven fallback. */
 .green-shape {
-  fill: var(--forest-tint);
-  stroke: var(--border-strong);
-  stroke-width: 1.5;
+  fill: rgba(0, 0, 0, 0);
+  stroke: none;
   cursor: pointer;
 }
 
-.green-shape:hover { fill: var(--brass-tint); stroke: var(--brass); }
+.green-shape:hover { fill: rgba(169, 130, 44, 0.35); }
 
 .green-shape.is-selected {
-  fill: var(--forest);
-  stroke: var(--forest-dark);
+  fill: rgba(31, 61, 43, 0.55);
 }
 
 .green-label {
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 26px;
   font-weight: 600;
   fill: var(--forest-dark);
   pointer-events: none;
