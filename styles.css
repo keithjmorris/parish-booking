@@ -197,7 +197,9 @@ input[type="password"],
 input[type="number"],
 select,
 textarea {
+  box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
   padding: 10px 12px;
   font-family: var(--font-body);
   font-size: 0.95rem;
@@ -208,6 +210,18 @@ textarea {
 }
 
 textarea { resize: vertical; min-height: 90px; }
+
+/* iOS Safari has a long-standing bug where input[type=date] and
+   input[type=time] don't reliably honour box-sizing:border-box — the
+   padding gets added on top of the 100% width instead of inside it,
+   pushing the field past its container on a phone. -webkit-appearance:none
+   resets the native control's own box model so our width/padding are
+   respected properly; it doesn't remove the date picker itself. */
+input[type="date"],
+input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
 
 input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible {
   outline: 2px solid var(--brass);
@@ -539,6 +553,7 @@ button, .btn {
   background: var(--surface-recessed);
   padding: 14px 16px;
   margin-bottom: 12px;
+  overflow: hidden; /* belt-and-braces: nothing inside can visually spill past this box */
 }
 
 .date-add-box__label {
