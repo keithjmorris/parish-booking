@@ -8,7 +8,7 @@ import {
   EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_REQUEST_RECEIVED
 } from "./emailjs-config.js";
 import {
-  TOTAL_LIMIT, COMMERCIAL_LIMIT, GREEN_LAYOUT, GREEN_MAP_IMAGE, GREEN_MAP_VIEWBOX,
+  TOTAL_LIMIT, COMMERCIAL_LIMIT, GREEN_LAYOUT,
   loadActiveSites, groupSitesByType, getUsageForSites,
   fmtDateShort, fmtDateList, datesForWeeklyRange
 } from "./locations.js";
@@ -36,71 +36,38 @@ async function loadSites() {
   siteGroups = groupSitesByType(sites);
   renderGreensMap();
   renderGreensList();
-  refreshCapacityDisplays();
 }
 
 function renderGreensMap() {
   const svg = document.getElementById("greens-map");
   svg.innerHTML = "";
-  svg.setAttribute("viewBox", `0 0 ${GREEN_MAP_VIEWBOX.width} ${GREEN_MAP_VIEWBOX.height}`);
-  const ns = "http://www.w3.org/2000/svg";
-
-  // Background artwork (the clerk's own illustration of the greens).
-  const bg = document.createElementNS(ns, "image");
-  bg.setAttributeNS("http://www.w3.org/1999/xlink", "href", GREEN_MAP_IMAGE);
-  bg.setAttribute("href", GREEN_MAP_IMAGE);
-  bg.setAttribute("x", "0");
-  bg.setAttribute("y", "0");
-  bg.setAttribute("width", GREEN_MAP_VIEWBOX.width);
-  bg.setAttribute("height", GREEN_MAP_VIEWBOX.height);
-  bg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-  svg.appendChild(bg);
-
   siteGroups.green.forEach(site => {
     const layout = GREEN_LAYOUT[site.number];
     if (!layout) return;
-    const pointsAttr = layout.points.map(p => p.join(",")).join(" ");
-
-    // A transparent clickable polygon traced to the shape's own outline —
-    // the artwork shows through underneath; this just captures clicks and
-    // paints a colour wash on top for hover/selected states.
-    const poly = document.createElementNS(ns, "polygon");
-    poly.setAttribute("points", pointsAttr);
-    poly.setAttribute("class", "green-shape");
-    poly.setAttribute("data-site-id", site.id);
-    poly.setAttribute("tabindex", "0");
-    poly.setAttribute("role", "button");
-    poly.setAttribute("aria-label", `${site.name} — toggle selection`);
-    poly.setAttribute("pointer-events", "all");
-    poly.style.cssText = "fill:rgba(0,0,0,0);stroke:none;cursor:pointer;transition:fill 0.12s;";
-    poly.addEventListener("click", () => toggleGreen(site.id));
-    poly.addEventListener("keydown", (e) => {
+    const ns = "http://www.w3.org/2000/svg";
+    const ellipse = document.createElementNS(ns, "ellipse");
+    ellipse.setAttribute("cx", layout.cx);
+    ellipse.setAttribute("cy", layout.cy);
+    ellipse.setAttribute("rx", layout.rx);
+    ellipse.setAttribute("ry", layout.ry);
+    ellipse.setAttribute("class", "green-shape");
+    ellipse.setAttribute("data-site-id", site.id);
+    ellipse.setAttribute("tabindex", "0");
+    ellipse.setAttribute("role", "button");
+    ellipse.setAttribute("aria-label", `${site.name} — toggle selection`);
+    ellipse.addEventListener("click", () => toggleGreen(site.id));
+    ellipse.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleGreen(site.id); }
     });
-    poly.addEventListener("mouseenter", () => {
-      if (!selectedGreenIds.has(site.id)) poly.style.fill = "rgba(169,130,44,0.35)";
-    });
-    poly.addEventListener("mouseleave", () => syncGreenVisuals());
-    svg.appendChild(poly);
-
-    // A small light "halo" behind the number keeps it legible against the
-    // artwork's own colours.
-    const halo = document.createElementNS(ns, "circle");
-    halo.setAttribute("cx", layout.labelX);
-    halo.setAttribute("cy", layout.labelY);
-    halo.setAttribute("r", 20);
-    halo.setAttribute("class", "green-label-halo");
-    halo.setAttribute("data-site-id", site.id);
-    halo.style.cssText = "fill:#FFFFFF;opacity:0.8;pointer-events:none;";
-    svg.appendChild(halo);
+    svg.appendChild(ellipse);
 
     const text = document.createElementNS(ns, "text");
-    text.setAttribute("x", layout.labelX);
-    text.setAttribute("y", layout.labelY);
+    text.setAttribute("x", layout.cx);
+    text.setAttribute("y", layout.cy);
     text.setAttribute("class", "green-label");
     text.setAttribute("data-site-id", site.id);
     text.textContent = site.number;
-    text.style.cssText = "pointer-events:none;font-family:var(--font-body,sans-serif);font-size:26px;font-weight:600;fill:#14291D;text-anchor:middle;dominant-baseline:middle;";
+    text.style.pointerEvents = "none";
     svg.appendChild(text);
   });
   syncGreenVisuals();
@@ -138,18 +105,10 @@ function syncGreenVisuals() {
   document.querySelectorAll("#greens-map .green-shape").forEach(el => {
     const on = selectedGreenIds.has(el.dataset.siteId);
     el.classList.toggle("is-selected", on);
-    // A translucent colour wash over the traced shape — the artwork itself
-    // provides the base colour, this just shows which ones are picked.
-    el.style.fill = on ? "rgba(31,61,43,0.55)" : "rgba(0,0,0,0)";
   });
   document.querySelectorAll("#greens-map .green-label").forEach(el => {
-    // The white halo behind each number means it stays legible on any
-    // fill colour, so the label itself always stays dark.
-    el.style.fill = "#14291D";
-  });
-  document.querySelectorAll("#greens-map .green-label-halo").forEach(el => {
     const on = selectedGreenIds.has(el.dataset.siteId);
-    el.style.opacity = on ? "1" : "0.75";
+    el.classList.toggle("is-selected", on);
   });
   document.querySelectorAll("#greens-list input[type=checkbox]").forEach(el => {
     el.checked = selectedGreenIds.has(el.dataset.siteId);
@@ -251,21 +210,11 @@ function renderDates() {
   dates.forEach(d => {
     const chip = document.createElement("span");
     chip.className = "date-chip";
-    // Inline fallback layout in case the stylesheet hasn't loaded/deployed yet —
-    // keeps the chip on one line either way.
-    chip.style.cssText = "display:inline-flex;flex-shrink:0;white-space:nowrap;align-items:center;gap:8px;";
-    chip.textContent = fmtDateShort(d) + " ";
-
-    const removeBtn = document.createElement("button");
-    removeBtn.type = "button";
-    removeBtn.setAttribute("aria-label", "Remove date");
-    removeBtn.textContent = "×";
-    removeBtn.style.cssText = "flex-shrink:0;";
-    removeBtn.addEventListener("click", () => {
+    chip.innerHTML = `${fmtDateShort(d)} <button type="button" aria-label="Remove date">&times;</button>`;
+    chip.querySelector("button").addEventListener("click", () => {
       dates = dates.filter(x => x !== d);
       renderDates();
     });
-    chip.appendChild(removeBtn);
     list.appendChild(chip);
   });
   document.getElementById("dates-error").style.display = "none";
@@ -307,6 +256,24 @@ function showError(msg) {
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   formError.hidden = true;
+
+  // Forgiving submit: if someone filled in the "add a date" box (or a
+  // complete weekly range) but forgot to click the Add button, pick it up
+  // automatically rather than blocking them with "please add a date" when
+  // a date is sitting right there unadded.
+  const singleDateInput = document.getElementById("singleDate");
+  if (singleDateInput.value) {
+    addDate(singleDateInput.value);
+    singleDateInput.value = "";
+  }
+  const weeklyDayEl = document.getElementById("weeklyDay");
+  const weeklyStartEl = document.getElementById("weeklyStart");
+  const weeklyEndEl = document.getElementById("weeklyEnd");
+  if (weeklyStartEl.value && weeklyEndEl.value) {
+    datesForWeeklyRange(weeklyDayEl.value, weeklyStartEl.value, weeklyEndEl.value)
+      .forEach(d => { if (!dates.includes(d)) dates.push(d); });
+    renderDates();
+  }
 
   const otherText = document.getElementById("otherLocation").value.trim();
   const hasFreetext = activeLocs.has("freetext") && otherText;
