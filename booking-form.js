@@ -1,5 +1,12 @@
 // booking-form.js — stage 1: public booking request
 
+// Version marker — printed to the browser console on every load. If a bug
+// report doesn't match what's in this file, check the live console for
+// this line first: if it's missing or shows an older date, the browser or
+// Vercel's edge is serving a stale cached copy rather than the file
+// that's actually deployed, which has been the cause more than once.
+console.log("booking-form.js build: 2026-11-02-d (Add date button restored)");
+
 import { db } from "./firebase-config.js";
 import {
   collection, addDoc, serverTimestamp
@@ -266,20 +273,11 @@ function addDate(iso) {
   renderDates();
 }
 
-// No separate "Add" button for a single date — the moment a complete date
-// is picked (native date inputs fire "change" once a full day/month/year
-// is set, whether typed, picked from the calendar, or chosen on a phone's
-// date wheel), it goes straight into the list. "input" is also listened
-// for as a belt-and-braces fallback, since not every browser is perfectly
-// consistent about firing "change" for a date control.
-function addFromSingleDateInput() {
+document.getElementById("add-single-date").addEventListener("click", () => {
   const input = document.getElementById("singleDate");
-  if (!input.value) return;
   addDate(input.value);
   input.value = "";
-}
-document.getElementById("singleDate").addEventListener("change", addFromSingleDateInput);
-document.getElementById("singleDate").addEventListener("input", addFromSingleDateInput);
+});
 
 document.getElementById("add-weekly-dates").addEventListener("click", () => {
   const weekday = document.getElementById("weeklyDay").value;

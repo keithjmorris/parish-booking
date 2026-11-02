@@ -117,12 +117,16 @@
           <div id="dates-empty" class="hint" style="margin:6px 0 14px 0;">No dates added yet.</div>
 
           <div class="date-add-box">
-            <div class="date-add-box__label">Add a date</div>
-            <div class="field" style="margin-bottom:0;">
-              <label for="singleDate">Date</label>
-              <input type="date" id="singleDate">
+            <div class="date-add-box__label">Step 1: pick a date below. Step 2: click "Add date" — the date is not included until you do.</div>
+            <div class="field-row" style="align-items:flex-end;">
+              <div class="field" style="margin-bottom:0;">
+                <label for="singleDate">Date</label>
+                <input type="date" id="singleDate">
+              </div>
+              <div class="field" style="margin-bottom:0;">
+                <button type="button" class="btn-primary btn-small" id="add-single-date">Add date</button>
+              </div>
             </div>
-            <div class="hint" style="margin-top:8px;margin-bottom:0;">Picking a date adds it to the list above straight away — no extra button to click. To add another, just pick again.</div>
           </div>
 
           <div class="date-add-box date-add-box--recurring">
