@@ -5,7 +5,7 @@
 // this line first: if it's missing or shows an older date, the browser or
 // Vercel's edge is serving a stale cached copy rather than the file
 // that's actually deployed, which has been the cause more than once.
-console.log("booking-form.js build: 2026-11-02-g (checkValidity diagnostic added)");
+console.log("booking-form.js build: 2026-11-02-h (real fix: custom validation replaces checkValidity)");
 
 import { db } from "./firebase-config.js";
 import {
@@ -277,6 +277,12 @@ document.getElementById("add-single-date").addEventListener("click", () => {
   const input = document.getElementById("singleDate");
   addDate(input.value);
   input.value = "";
+  // Safari sometimes doesn't visually redraw a date field after it's
+  // cleared from JavaScript, so it can keep showing the old date even
+  // though its real value is now empty. Briefly moving focus off and
+  // back onto the field forces it to redraw correctly.
+  input.blur();
+  requestAnimationFrame(() => input.focus());
 });
 
 document.getElementById("add-weekly-dates").addEventListener("click", () => {
@@ -353,18 +359,38 @@ form.addEventListener("submit", async (e) => {
   }
   console.log("[submit diagnostic] PASSED validation — continuing to capacity check / save");
 
-  if (!form.checkValidity()) {
-    const invalidFields = [...form.elements].filter(el => el.willValidate && !el.validity.valid);
-    console.log("[submit diagnostic] form.checkValidity() FAILED — invalid fields:",
-      invalidFields.map(el => ({ id: el.id || el.name, validationMessage: el.validationMessage, value: el.value })));
-    formError.hidden = false;
-    formError.style.cssText = "background:#fee;color:#822;border-left:4px solid #a33;";
-    formError.textContent = "[diagnostic] Blocked by: " +
-      invalidFields.map(el => `"${el.id || el.name}" (${el.validationMessage})`).join(", ");
-    form.reportValidity();
+  // NOTE: this used to rely on the browser's own form.checkValidity() /
+  // reportValidity(). Diagnostics on 2026-11-02 proved that unreliable in
+  // at least one real browser: checkValidity() returned false while every
+  // individual field reported itself valid — a genuine inconsistency in
+  // the browser's own validation state, not anything in this form's
+  // markup. Checking the handful of required fields ourselves sidesteps
+  // that entirely, and lets us say exactly what's missing, in plain
+  // English, right on the page.
+  const requiredChecks = [
+    { id: "eventTitle", label: "Event title" },
+    { id: "organiserName", label: "Your full name" },
+    { id: "organiserEmail", label: "Your email", pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, patternMsg: "doesn't look like a valid email address" },
+    { id: "organiserPhone", label: "Your phone number" },
+  ];
+  const problems = [];
+  let firstInvalidEl = null;
+  for (const check of requiredChecks) {
+    const el = document.getElementById(check.id);
+    const val = el.value.trim();
+    if (!val) {
+      problems.push(`${check.label} is required.`);
+      if (!firstInvalidEl) firstInvalidEl = el;
+    } else if (check.pattern && !check.pattern.test(val)) {
+      problems.push(`${check.label} ${check.patternMsg}.`);
+      if (!firstInvalidEl) firstInvalidEl = el;
+    }
+  }
+  if (problems.length) {
+    showError(problems.join(" "));
+    if (firstInvalidEl) firstInvalidEl.focus();
     return;
   }
-  console.log("[submit diagnostic] form.checkValidity() passed — all required fields OK");
 
   const siteIds = [];
   const siteNames = [];
@@ -398,17 +424,9 @@ form.addEventListener("submit", async (e) => {
   submitBtn.disabled = true;
   submitBtn.textContent = "Checking availability…";
 
-  // Temporary on-page diagnostic — shows exactly which step is running,
-  // visible without opening developer tools. Safe to leave visible; it's
-  // plain text, not an error unless something actually goes wrong.
-  formError.hidden = false;
-  formError.style.cssText = "background:#eef;color:#224;border-left:4px solid #558;";
-  formError.textContent = "[diagnostic] starting availability check…";
-
   // Re-check capacity at submit time to avoid a stale/raced count.
   try {
     const usage = await getUsageForSites(siteIds);
-    formError.textContent = "[diagnostic] availability check finished OK, saving booking…";
     for (const id of siteIds) {
       const u = usage[id];
       const name = siteNames[siteIds.indexOf(id)];
@@ -427,12 +445,10 @@ form.addEventListener("submit", async (e) => {
     }
   } catch (err) {
     console.error(err);
-    formError.textContent = "[diagnostic] availability check FAILED (but continuing anyway): " + (err && err.message ? err.message : String(err));
     // Non-blocking — let the request through, council can catch it on review.
   }
 
   submitBtn.textContent = "Submitting…";
-  formError.textContent = "[diagnostic] writing booking to the database…";
 
   const sortedDates = [...dates].sort();
 
@@ -481,8 +497,7 @@ form.addEventListener("submit", async (e) => {
     }
   } catch (err) {
     console.error(err);
-    formError.style.cssText = "";
-    showError("Something went wrong sending your request. [diagnostic detail: " + (err && err.message ? err.message : String(err)) + "] Please try again, or contact the parish clerk directly.");
+    showError("Something went wrong sending your request. Please try again, or contact the parish clerk directly.");
     submitBtn.disabled = false;
     submitBtn.textContent = "Submit request";
   }
