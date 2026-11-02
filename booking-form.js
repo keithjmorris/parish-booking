@@ -5,7 +5,7 @@
 // this line first: if it's missing or shows an older date, the browser or
 // Vercel's edge is serving a stale cached copy rather than the file
 // that's actually deployed, which has been the cause more than once.
-console.log("booking-form.js build: 2026-11-02-e (diagnostic logging added)");
+console.log("booking-form.js build: 2026-11-02-f (on-page diagnostic status added)");
 
 import { db } from "./firebase-config.js";
 import {
@@ -390,9 +390,17 @@ form.addEventListener("submit", async (e) => {
   submitBtn.disabled = true;
   submitBtn.textContent = "Checking availability…";
 
+  // Temporary on-page diagnostic — shows exactly which step is running,
+  // visible without opening developer tools. Safe to leave visible; it's
+  // plain text, not an error unless something actually goes wrong.
+  formError.hidden = false;
+  formError.style.cssText = "background:#eef;color:#224;border-left:4px solid #558;";
+  formError.textContent = "[diagnostic] starting availability check…";
+
   // Re-check capacity at submit time to avoid a stale/raced count.
   try {
     const usage = await getUsageForSites(siteIds);
+    formError.textContent = "[diagnostic] availability check finished OK, saving booking…";
     for (const id of siteIds) {
       const u = usage[id];
       const name = siteNames[siteIds.indexOf(id)];
@@ -411,10 +419,12 @@ form.addEventListener("submit", async (e) => {
     }
   } catch (err) {
     console.error(err);
+    formError.textContent = "[diagnostic] availability check FAILED (but continuing anyway): " + (err && err.message ? err.message : String(err));
     // Non-blocking — let the request through, council can catch it on review.
   }
 
   submitBtn.textContent = "Submitting…";
+  formError.textContent = "[diagnostic] writing booking to the database…";
 
   const sortedDates = [...dates].sort();
 
@@ -463,7 +473,8 @@ form.addEventListener("submit", async (e) => {
     }
   } catch (err) {
     console.error(err);
-    showError("Something went wrong sending your request. Please try again, or contact the parish clerk directly.");
+    formError.style.cssText = "";
+    showError("Something went wrong sending your request. [diagnostic detail: " + (err && err.message ? err.message : String(err)) + "] Please try again, or contact the parish clerk directly.");
     submitBtn.disabled = false;
     submitBtn.textContent = "Submit request";
   }
