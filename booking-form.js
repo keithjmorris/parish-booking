@@ -5,7 +5,7 @@
 // this line first: if it's missing or shows an older date, the browser or
 // Vercel's edge is serving a stale cached copy rather than the file
 // that's actually deployed, which has been the cause more than once.
-console.log("booking-form.js build: 2026-11-02-d (Add date button restored)");
+console.log("booking-form.js build: 2026-11-02-e (diagnostic logging added)");
 
 import { db } from "./firebase-config.js";
 import {
@@ -334,11 +334,24 @@ form.addEventListener("submit", async (e) => {
   const datesValid = dates.length > 0;
   document.getElementById("dates-error").style.display = datesValid ? "none" : "block";
 
+  // Temporary diagnostic logging — remove once the submit-validation bug
+  // reported 2026-11-02 is confirmed fixed. Shows exactly what the form
+  // saw at the moment Submit was clicked, since the problem hasn't been
+  // reproducible from outside the clerk's own browser.
+  console.log("[submit diagnostic] activeLocs:", [...activeLocs]);
+  console.log("[submit diagnostic] selectedGreenIds:", [...selectedGreenIds]);
+  console.log("[submit diagnostic] hasFreetext/hasGreens/hasPlayingField/hasPavilion:", hasFreetext, hasGreens, hasPlayingField, hasPavilion);
+  console.log("[submit diagnostic] locationsValid:", locationsValid);
+  console.log("[submit diagnostic] dates array:", JSON.stringify(dates));
+  console.log("[submit diagnostic] datesValid:", datesValid);
+
   if (!locationsValid || !datesValid) {
+    console.log("[submit diagnostic] BLOCKED — scrolling to:", !locationsValid ? "locations-error" : "dates-error");
     if (!locationsValid) document.getElementById("locations-error").scrollIntoView({ behavior: "smooth", block: "center" });
     else document.getElementById("dates-error").scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
+  console.log("[submit diagnostic] PASSED validation — continuing to capacity check / save");
 
   if (!form.checkValidity()) {
     form.reportValidity();
