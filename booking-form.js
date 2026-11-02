@@ -5,7 +5,7 @@
 // this line first: if it's missing or shows an older date, the browser or
 // Vercel's edge is serving a stale cached copy rather than the file
 // that's actually deployed, which has been the cause more than once.
-console.log("booking-form.js build: 2026-11-02-f (on-page diagnostic status added)");
+console.log("booking-form.js build: 2026-11-02-g (checkValidity diagnostic added)");
 
 import { db } from "./firebase-config.js";
 import {
@@ -354,9 +354,17 @@ form.addEventListener("submit", async (e) => {
   console.log("[submit diagnostic] PASSED validation — continuing to capacity check / save");
 
   if (!form.checkValidity()) {
+    const invalidFields = [...form.elements].filter(el => el.willValidate && !el.validity.valid);
+    console.log("[submit diagnostic] form.checkValidity() FAILED — invalid fields:",
+      invalidFields.map(el => ({ id: el.id || el.name, validationMessage: el.validationMessage, value: el.value })));
+    formError.hidden = false;
+    formError.style.cssText = "background:#fee;color:#822;border-left:4px solid #a33;";
+    formError.textContent = "[diagnostic] Blocked by: " +
+      invalidFields.map(el => `"${el.id || el.name}" (${el.validationMessage})`).join(", ");
     form.reportValidity();
     return;
   }
+  console.log("[submit diagnostic] form.checkValidity() passed — all required fields OK");
 
   const siteIds = [];
   const siteNames = [];
