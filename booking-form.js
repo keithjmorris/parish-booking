@@ -266,11 +266,20 @@ function addDate(iso) {
   renderDates();
 }
 
-document.getElementById("add-single-date").addEventListener("click", () => {
+// No separate "Add" button for a single date — the moment a complete date
+// is picked (native date inputs fire "change" once a full day/month/year
+// is set, whether typed, picked from the calendar, or chosen on a phone's
+// date wheel), it goes straight into the list. "input" is also listened
+// for as a belt-and-braces fallback, since not every browser is perfectly
+// consistent about firing "change" for a date control.
+function addFromSingleDateInput() {
   const input = document.getElementById("singleDate");
+  if (!input.value) return;
   addDate(input.value);
   input.value = "";
-});
+}
+document.getElementById("singleDate").addEventListener("change", addFromSingleDateInput);
+document.getElementById("singleDate").addEventListener("input", addFromSingleDateInput);
 
 document.getElementById("add-weekly-dates").addEventListener("click", () => {
   const weekday = document.getElementById("weeklyDay").value;
